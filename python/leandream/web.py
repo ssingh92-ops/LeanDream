@@ -96,10 +96,20 @@ def latest_run() -> dict:
 
 
 @app.get("/api/attempts")
-def list_all_attempts(run: str | None = None) -> list[dict]:
-    """Return all attempt records, newest first. Pass ?run=<run_id> to filter."""
+def list_all_attempts(
+    run: str | None = None,
+    page: int = 1,
+    page_size: int = 200,
+) -> dict:
+    """Return attempt records with pagination.
+
+    Query params:
+      run       — filter to a specific run_id
+      page      — 1-based page number (default 1)
+      page_size — records per page (default 200, max 1000)
+    """
     if not RUNS_DIR.exists():
-        return []
+        return {"items": [], "total": 0, "page": page, "page_size": page_size, "pages": 0}
     if run:
         dirs = [RUNS_DIR / run]
     else:
@@ -109,7 +119,27 @@ def list_all_attempts(run: str | None = None) -> list[dict]:
         if d.is_dir():
             out.extend(_load_run_attempts(d))
     out.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
-    return out
+
+    page_size = min(max(page_size, 1), 1000)
+    total = len(out)
+    pages = max((total + page_size - 1) // page_size, 1)
+    start = (page - 1) * page_size
+    items = out[start : start + page_size]
+    return {"items": items, "total": total, "page": page, "page_size": page_size, "pages": pages}
+
+
+@app.get("/api/cache-stats")
+def cache_stats() -> dict:
+    """Return hit/miss/size stats for all disk caches."""
+    try:
+        from .cache import lean_verify_cache, llm_response_cache, property_prove_cache
+        return {
+            "lean_verify": lean_verify_cache().stats(),
+            "llm_response": llm_response_cache().stats(),
+            "property_prove": property_prove_cache().stats(),
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.get("/api/bandit")
@@ -512,7 +542,7 @@ def get_lean_engineering(run: str | None = None) -> dict:
     for mname in stable_macros:
         cards = cards_by_macro.get(mname, [])
         has_lean = any(
-            c.payload.get("trust_level") == "lean_theorem_checked"
+            c.payload.get("trust_level") in ("lean_verified", "lean_theorem_checked")
             for c in cards
         )
         if has_lean:

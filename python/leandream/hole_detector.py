@@ -118,19 +118,29 @@ _TT_ROLE_MAP: dict[str, str] = {
 }
 
 
-def detect_macro_roles(registry: dict[str, dict]) -> dict[str, str | None]:
-    """Scan registry macros by truth-table key; return {role: macro_name | None}.
+def detect_macro_roles(registry: dict[str, dict]) -> dict[str, dict | None]:
+    """Scan registry macros by truth-table key; return {role: info_dict | None}.
 
+    Each info_dict contains: name, arity, tt_key, role, legal_schema, body_repr.
     Roles: and_macro, or_macro, xor_macro, not_macro, nand_macro, nor_macro,
     xnor_macro, majority3_macro, carry_macro, xor3_macro, xor4_macro.
     First match per role wins (registry insertion order is stable).
     """
-    roles: dict[str, str | None] = {v: None for v in _TT_ROLE_MAP.values()}
+    roles: dict[str, dict | None] = {v: None for v in _TT_ROLE_MAP.values()}
     for name, info in registry.items():
         tt_key = info.get("tt_key", "")
         role = _TT_ROLE_MAP.get(tt_key)
         if role and roles[role] is None:
-            roles[role] = name
+            arity = info.get("arity", 0)
+            args_repr = ", ".join(["expr"] * arity)
+            roles[role] = {
+                "name": name,
+                "arity": arity,
+                "tt_key": tt_key,
+                "role": role,
+                "legal_schema": f'{{"kind":"mac","name":"{name}","args":[{args_repr}]}}',
+                "body_repr": info.get("body_repr", ""),
+            }
     return roles
 
 

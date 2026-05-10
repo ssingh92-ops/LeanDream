@@ -1,0 +1,25 @@
+{
+  "name": "majority4",
+  "description": "4-input majority vote. Output is 1 when at least 3 of the 4 inputs are 1.",
+  "arity": 4,
+  "inputs": ["a", "b", "c", "d"],
+  "lean_spec": "Specs.majority4",
+  "truth_table": [
+    {"inputs": [false, false, false, false], "output": false},
+    {"inputs": [false, false, false, true ], "output": false},
+    {"inputs": [false, false, true,  false], "output": false},
+    {"inputs": [false, false, true,  true ], "output": false},
+    {"inputs": [false, true,  false, false], "output": false},
+    {"inputs": [false, true,  false, true ], "output": false},
+    {"inputs": [false, true,  true,  false], "output": false},
+    {"inputs": [false, true,  true,  true ], "output": true },
+    {"inputs": [true,  false, false, false], "output": false},
+    {"inputs": [true,  false, false, true ], "output": false},
+    {"inputs": [true,  false, true,  false], "output": false},
+    {"inputs": [true,  false, true,  true ], "output": true },
+    {"inputs": [true,  true,  false, false], "output": false},
+    {"inputs": [true,  true,  false, true ], "output": true },
+    {"inputs": [true,  true,  true,  false], "output": true },
+    {"inputs": [true,  true,  true,  true ], "output": true }
+  ]
+}

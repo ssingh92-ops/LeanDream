@@ -201,27 +201,56 @@ def compute_run_summary(
     should_continue = False
     action = "inspect_run_data"
 
+    # Count arity mismatch failures for specific majority/carry diagnosis
+    arity_mismatch_count = 0
+    majority_verify_count = 0
+    majority_total_count = 0
+    if attempt_records:
+        for r in attempt_records:
+            spec = r.get("spec", "")
+            status = r.get("status", "")
+            if spec in ("majority3", "full_adder_carry") and r.get("repair_pass", 0) == 0:
+                majority_total_count += 1
+                if status == "verified":
+                    majority_verify_count += 1
+                elif status == "arity_mismatch":
+                    arity_mismatch_count += 1
+
+    majority_rate = majority_verify_count / majority_total_count if majority_total_count else None
+
     if total_attempted == 0:
         action = "run_the_orchestrator_first"
     elif stage_gate_passed is True:
         should_continue = True
         action = "proceed_to_next_stage"
     elif stage_gate_passed is False:
-        action = "rerun_stage_with_more_iterations"
+        # Diagnose why gate failed
+        mux_blocked = any("mux2" in r for r in blocking_reasons)
+        arity_dominant = arity_mismatch_count >= 2
+        majority_low = majority_rate is not None and majority_rate < 0.5
+        if mux_blocked:
+            action = "inspect_mux_hole"
+        elif arity_dominant and majority_low:
+            action = "fix_macro_arity_prompt"
+        else:
+            action = "rerun_stage_with_more_iterations"
     elif blocking_reasons:
         mux_blocked = any("mux2" in r for r in blocking_reasons)
-        arity_dominant = any("macro_arity" in m or "arity_mismatch" in m for m in top_failure_modes)
+        arity_dominant = arity_mismatch_count >= 2
         if mux_blocked:
             action = "inspect_mux_hole"
         elif arity_dominant:
-            action = "improve_repair_prompt_for_arity"
+            action = "fix_macro_arity_prompt"
         else:
             action = "do_not_increase_complexity_yet"
     elif avg_verify_rate >= 0.6 and macro_count >= 2:
         should_continue = True
         action = "proceed_to_next_stage"
     elif avg_verify_rate >= 0.4:
-        action = "rerun_stage_with_more_iterations"
+        if arity_mismatch_count >= 2:
+            action = "fix_macro_arity_prompt"
+        else:
+            action = "rerun_stage_with_more_iterations"
     else:
         action = "do_not_increase_complexity_yet"
 

@@ -60,25 +60,35 @@ _ROLE_LABELS: dict[str, str] = {
 }
 
 
-def render_semantic_role_map(roles: dict[str, str | None]) -> str:
+def render_semantic_role_map(roles: dict[str, dict | None]) -> str:
     """Build a SEMANTIC ROLE MAP block from detected macro roles.
 
-    Only includes non-None roles.  When AND and OR macros are both known,
-    appends the explicit majority3 formula using their actual macro names.
+    Shows each role with actual macro name, arity, legal JSON schema, and
+    arity warnings for macros commonly called with the wrong number of args.
+    When AND and OR macros are both known, appends the explicit majority3
+    formula using their actual macro names.
     """
-    filled = [(role, macro) for role, macro in roles.items() if macro is not None]
+    filled = [(role, info) for role, info in roles.items() if info is not None]
     if not filled:
         return ""
     lines = ["[SEMANTIC ROLE MAP — use these macro names for their boolean roles]"]
-    for role, macro in sorted(filled):
+    for role, info in sorted(filled):
         label = _ROLE_LABELS.get(role, role)
-        lines.append(f"  {label} → {macro}")
-    and_m = roles.get("and_macro")
-    or_m  = roles.get("or_macro")
+        name = info["name"]
+        arity = info["arity"]
+        schema = info["legal_schema"]
+        lines.append(f"  {label} → {name}(args={arity})")
+        lines.append(f"    legal: {schema}")
+        if role in ("carry_macro", "majority3_macro") and arity == 3:
+            lines.append(f"    NEVER call {name} with 2 args — requires exactly 3")
+
+    and_info = roles.get("and_macro")
+    or_info  = roles.get("or_macro")
+    and_m = and_info["name"] if and_info else None
+    or_m  = or_info["name"] if or_info else None
+
     if and_m and or_m:
-        formula_text = (
-            f"{or_m}({or_m}({and_m}(a,b), {and_m}(b,c)), {and_m}(a,c))"
-        )
+        formula_text = f"{or_m}({or_m}({and_m}(a,b), {and_m}(b,c)), {and_m}(a,c))"
         formula_json = (
             f'{{"kind":"mac","name":"{or_m}","args":['
             f'{{"kind":"mac","name":"{or_m}","args":['
@@ -89,8 +99,18 @@ def render_semantic_role_map(roles: dict[str, str | None]) -> str:
             f']}}'
         )
         lines.append("")
-        lines.append(f"  majority3 formula:  majority(a,b,c) = {formula_text}")
+        lines.append(f"  majority3 formula: majority(a,b,c) = {formula_text}")
         lines.append(f"  JSON: {formula_json}")
+
+    # If a carry or majority3 macro exists, show direct 3-arg usage
+    carry_info = roles.get("carry_macro") or roles.get("majority3_macro")
+    if carry_info:
+        cname = carry_info["name"]
+        lines.append("")
+        lines.append(f"  Direct 3-arg usage (carry/majority shortcut):")
+        lines.append(f"  majority3(a,b,c) = {cname}(a, b, c)  [3 args required]")
+        lines.append(f"  {carry_info['legal_schema']}")
+
     return "\n".join(lines)
 
 
@@ -120,6 +140,25 @@ def build_majority_role_pack(spec: dict[str, Any], roles: dict[str, str | None])
     return render_semantic_role_map(roles)
 
 
+# Concrete one-line theorem hints shown to the LLM for each proven property.
+# Format: lambda macro_name -> human-readable equation string.
+_PROP_HINTS: dict[str, Any] = {
+    "commutative":           lambda m: f"{m}(a,b) = {m}(b,a)  [args interchangeable]",
+    "idempotent":            lambda m: f"{m}(a,a) = a  [duplicate arg simplifies]",
+    "associative":           lambda m: f"{m}({m}(a,b),c) = {m}(a,{m}(b,c))  [chain freely]",
+    "involution":            lambda m: f"{m}({m}(a)) = a  [double negation cancels]",
+    "constancy":             lambda m: f"{m}(a) = a  [identity function]",
+    "identity_left_false":   lambda m: f"{m}(false,a) = a",
+    "identity_left_true":    lambda m: f"{m}(true,a) = a",
+    "identity_right_false":  lambda m: f"{m}(a,false) = a",
+    "identity_right_true":   lambda m: f"{m}(a,true) = a",
+    "annihilator_left_false":  lambda m: f"{m}(false,a) = false",
+    "annihilator_left_true":   lambda m: f"{m}(true,a) = true",
+    "annihilator_right_false": lambda m: f"{m}(a,false) = false",
+    "annihilator_right_true":  lambda m: f"{m}(a,true) = true",
+}
+
+
 def render_macros(installed: dict[str, dict[str, Any]]) -> str:
     if not installed:
         return "(no macros installed yet)"
@@ -131,10 +170,15 @@ def render_macros(installed: dict[str, dict[str, Any]]) -> str:
         props = info.get("properties", []) or []
         alias = info.get("alias_of")
         suffix = f" [alias of {alias}]" if alias else ""
-        prop_str = f" {{props: {', '.join(props)}}}" if props else ""
         lines.append(
-            f"- {name} (arity {arity}, mined from {', '.join(members) or '?'}){suffix}: {body}{prop_str}"
+            f"- {name} (arity {arity}, mined from {', '.join(members) or '?'}){suffix}: {body}"
         )
+        # Expand each proven property into a concrete equation so the LLM can
+        # use it directly without re-deriving the behaviour from the truth table.
+        for p in props:
+            hint_fn = _PROP_HINTS.get(p)
+            if hint_fn:
+                lines.append(f"    [theorem] {hint_fn(name)}")
     return "\n".join(lines)
 
 

@@ -29,6 +29,9 @@ Schema (all fields are optional except run_id, iteration, status, timestamp):
   "info_structure": dict | null,  # lightweight information-structure tags (heuristic)
   "repair_pass": int | null,      # 0 = original attempt, 1 = one-shot repair
   "hole_type": str | null,        # hole classification if STATUS_HOLE_DETECTED (V4)
+  "preflight_ms": float | null,   # time spent in preflight validation
+  "quickcheck_ms": float | null,  # time spent in Python truth-table quickcheck
+  "lean_cached": bool | null,     # True when Lean result came from disk cache
 }
 """
 
@@ -114,6 +117,9 @@ def log(
     hole_type: str | None = None,
     retrieved_card_ids: list[str] | None = None,
     environment: dict | None = None,
+    preflight_ms: float | None = None,
+    quickcheck_ms: float | None = None,
+    lean_cached: bool | None = None,
 ) -> None:
     """Append one attempt record to `<run_dir>/attempts.jsonl`."""
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -143,6 +149,9 @@ def log(
         "hole_type": hole_type,
         "retrieved_card_ids": retrieved_card_ids or [],
         "environment": environment or {},
+        "preflight_ms": preflight_ms,
+        "quickcheck_ms": quickcheck_ms,
+        "lean_cached": lean_cached,
     }
     path = run_dir / "attempts.jsonl"
     with path.open("a", encoding="utf-8") as f:

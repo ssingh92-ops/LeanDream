@@ -16,6 +16,8 @@ def macro_8 (x0 x1 x2 : Circuit) : Circuit := (.xor x0 (.xor x1 x2))
 def macro_9 (x0 x1 x2 x3 : Circuit) : Circuit := (.xor x0 (.xor x1 (.xor x2 (.xor x3 (.const false)))))
 def macro_10 (x0 : Circuit) : Circuit := (.xor x0 (.const false))
 def macro_11 (x0 x1 x2 : Circuit) : Circuit := (.or (.and x0 x1) (.and x1 x2))
+def macro_12 (x0 x1 x2 : Circuit) : Circuit := (.and x0 (.and x1 x2))
+def macro_13 (x0 x1 x2 : Circuit) : Circuit := (.or x0 (.or x1 x2))
 -- END MACROS
 
 end LeanDream.Macros

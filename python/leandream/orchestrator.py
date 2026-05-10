@@ -16,12 +16,13 @@ from pydantic import TypeAdapter
 
 from . import attempts, forest, installer, miner, properties
 from .hole_detector import detect_holes, detect_macro_roles
-from .prompts import build_majority_role_pack
+from .prompts import build_majority_role_pack, build_user_prompt, SYSTEM_PROMPT
 from .learning.contextual_bandit import ContextualBandit, _macros_used, compute_reward
 from .memory.indexer import run_indexer
 from .memory import retriever as _mem_retriever
 from .memory import prompt_pack as _mem_prompt_pack
 from .memory.theorem_exporter import run_exporter as _run_theorem_exporter
+from .theorem_gen import generate_theorems_for_registry as _gen_theorems
 from .metrics import (
     compute_iteration_metrics,
     compute_run_summary,
@@ -125,14 +126,27 @@ def _run_one_attempt(
     model: str | None,
     iteration: int,
     memory_pack: str,
+    use_llm_cache: bool = True,
+    registry_hash: str = "",
 ) -> dict[str, Any]:
-    """Run generate→expand→verify for one spec. Returns a structured outcome dict.
+    """Run generate→expand→preflight→quickcheck→verify for one spec.
 
-    Does NOT log attempts, update the bandit, or record to the proof forest —
-    those side-effects stay in the caller so this function stays pure.
+    Returns a structured outcome dict.  Does NOT log attempts, update the
+    bandit, or record to the proof forest — those side-effects stay in the
+    caller so this function stays pure.
+
+    Phase timings are included in the returned dict:
+      llm_ms, preflight_ms, quickcheck_ms, lean_ms
     """
     import re as _re
+    from .quickcheck import quickcheck
 
+    timings: dict[str, float | None] = {
+        "llm_ms": None, "preflight_ms": None,
+        "quickcheck_ms": None, "lean_ms": None,
+    }
+
+    # ----- LLM / generate ---------------------------------------------------
     llm_t0 = time.monotonic()
     circuit: Circuit | None = None
     reasoning = ""
@@ -141,19 +155,28 @@ def _run_one_attempt(
         circuit, reasoning = generate(
             spec, ordered_registry, model=model, iteration=iteration,
             memory_pack=memory_pack,
+            **({"use_cache": use_llm_cache} if hasattr(generate, "__self__") or True else {}),
+        )
+    except TypeError:
+        # Fallback for generate functions that don't accept use_cache kwarg
+        circuit, reasoning = generate(
+            spec, ordered_registry, model=model, iteration=iteration,
+            memory_pack=memory_pack,
         )
     except Exception as e:
+        timings["llm_ms"] = (time.monotonic() - llm_t0) * 1000
         return {
             "status": attempts.STATUS_LLM_ERROR,
             "circuit": None, "expanded": None,
             "error_type": type(e).__name__, "error_message": str(e),
-            "llm_ms": (time.monotonic() - llm_t0) * 1000,
-            "lean_ms": None, "lean_stdout": None, "lean_stderr": None,
+            "lean_stdout": None, "lean_stderr": None,
             "proof_path": None, "reasoning": "", "macro_name": None,
-            "proof_mode": None,
+            "proof_mode": None, "lean_cached": False,
+            **timings,
         }
-    llm_ms = (time.monotonic() - llm_t0) * 1000
+    timings["llm_ms"] = (time.monotonic() - llm_t0) * 1000
 
+    # ----- Macro expansion --------------------------------------------------
     try:
         expanded = expand_macros(circuit, macro_circuits)
     except KeyError as e:
@@ -162,9 +185,10 @@ def _run_one_attempt(
             "status": attempts.STATUS_UNKNOWN_MACRO,
             "circuit": circuit, "expanded": None,
             "error_type": "KeyError", "error_message": str(e),
-            "llm_ms": llm_ms, "lean_ms": None, "lean_stdout": None, "lean_stderr": None,
+            "lean_stdout": None, "lean_stderr": None,
             "proof_path": None, "reasoning": reasoning, "macro_name": raw,
-            "proof_mode": None,
+            "proof_mode": None, "lean_cached": False,
+            **timings,
         }
     except ArityError as e:
         m = _re.search(r"macro '([^']+)' expects", str(e))
@@ -172,43 +196,69 @@ def _run_one_attempt(
             "status": attempts.STATUS_ARITY_MISMATCH,
             "circuit": circuit, "expanded": None,
             "error_type": "ArityError", "error_message": str(e),
-            "llm_ms": llm_ms, "lean_ms": None, "lean_stdout": None, "lean_stderr": None,
+            "lean_stdout": None, "lean_stderr": None,
             "proof_path": None, "reasoning": reasoning,
             "macro_name": m.group(1) if m else None,
-            "proof_mode": None,
+            "proof_mode": None, "lean_cached": False,
+            **timings,
         }
     except ExpansionCycleError as e:
         return {
             "status": attempts.STATUS_EXPANSION_CYCLE,
             "circuit": circuit, "expanded": None,
             "error_type": "ExpansionCycleError", "error_message": str(e),
-            "llm_ms": llm_ms, "lean_ms": None, "lean_stdout": None, "lean_stderr": None,
+            "lean_stdout": None, "lean_stderr": None,
             "proof_path": None, "reasoning": reasoning, "macro_name": None,
-            "proof_mode": None,
+            "proof_mode": None, "lean_cached": False,
+            **timings,
         }
     except ExpansionDepthError as e:
         return {
             "status": attempts.STATUS_EXPANSION_DEPTH,
             "circuit": circuit, "expanded": None,
             "error_type": "ExpansionDepthError", "error_message": str(e),
-            "llm_ms": llm_ms, "lean_ms": None, "lean_stdout": None, "lean_stderr": None,
+            "lean_stdout": None, "lean_stderr": None,
             "proof_path": None, "reasoning": reasoning, "macro_name": None,
-            "proof_mode": None,
+            "proof_mode": None, "lean_cached": False,
+            **timings,
         }
 
+    # ----- Preflight --------------------------------------------------------
+    pf_t0 = time.monotonic()
     preflight = preflight_validate(circuit, spec["arity"], ordered_registry)
+    timings["preflight_ms"] = (time.monotonic() - pf_t0) * 1000
     if not preflight.ok:
         return {
             "status": preflight.status,
             "circuit": circuit, "expanded": None,
             "error_type": preflight.error_type, "error_message": preflight.message,
-            "llm_ms": llm_ms, "lean_ms": None, "lean_stdout": None, "lean_stderr": None,
+            "lean_stdout": None, "lean_stderr": None,
             "proof_path": None, "reasoning": reasoning,
             "macro_name": preflight.macro_name, "proof_mode": None,
+            "lean_cached": False,
+            **timings,
         }
 
-    result = verify_candidate(circuit, spec["arity"], spec["lean_spec"])
-    lean_ms = result.elapsed_seconds * 1000
+    # ----- Python quickcheck (fast rejection before Lean) -------------------
+    qc_t0 = time.monotonic()
+    qc = quickcheck(circuit, spec, macro_circuits)
+    timings["quickcheck_ms"] = (time.monotonic() - qc_t0) * 1000
+    if not qc.passed:
+        return {
+            "status": attempts.STATUS_LEAN_FAILED,
+            "circuit": circuit, "expanded": expanded,
+            "error_type": "quickcheck_failed",
+            "error_message": f"Python quickcheck failed: {qc.counterexample}",
+            "lean_stdout": None, "lean_stderr": None,
+            "proof_path": None, "reasoning": reasoning, "macro_name": None,
+            "proof_mode": None, "lean_cached": False,
+            **timings,
+        }
+
+    # ----- Lean verification ------------------------------------------------
+    result = verify_candidate(circuit, spec["arity"], spec["lean_spec"],
+                              registry_hash=registry_hash)
+    timings["lean_ms"] = result.elapsed_seconds * 1000
 
     if result.ok:
         path = forest.record(
@@ -218,19 +268,19 @@ def _run_one_attempt(
             "status": attempts.STATUS_VERIFIED,
             "circuit": circuit, "expanded": expanded,
             "error_type": None, "error_message": None,
-            "llm_ms": llm_ms, "lean_ms": lean_ms,
             "lean_stdout": result.stdout, "lean_stderr": result.stderr,
             "proof_path": path, "reasoning": reasoning, "macro_name": None,
-            "proof_mode": result.proof_mode,
+            "proof_mode": result.proof_mode, "lean_cached": result.cached,
+            **timings,
         }
     return {
         "status": attempts.STATUS_LEAN_FAILED,
         "circuit": circuit, "expanded": expanded,
         "error_type": result.error, "error_message": result.error,
-        "llm_ms": llm_ms, "lean_ms": lean_ms,
         "lean_stdout": result.stdout, "lean_stderr": result.stderr,
         "proof_path": None, "reasoning": reasoning, "macro_name": None,
-        "proof_mode": result.proof_mode,
+        "proof_mode": result.proof_mode, "lean_cached": result.cached,
+        **timings,
     }
 
 
@@ -284,6 +334,9 @@ def _log_attempt(
         status=outcome["status"], proposer=proposer_name,
         error_type=outcome["error_type"], message=outcome["error_message"],
         llm_time_ms=outcome["llm_ms"], lean_time_ms=outcome["lean_ms"],
+        preflight_ms=outcome.get("preflight_ms"),
+        quickcheck_ms=outcome.get("quickcheck_ms"),
+        lean_cached=outcome.get("lean_cached", False),
         raw_circuit=_dump(circuit) if circuit else None,
         expanded_circuit=_dump(expanded) if expanded else None,
         lean_stdout=outcome["lean_stdout"], lean_stderr=outcome["lean_stderr"],
@@ -306,8 +359,12 @@ def run_iteration(
     proposer_name: str,
 ) -> tuple[int, int]:
     """One pass through every spec. Returns (verified, attempted)."""
+    import hashlib as _hashlib
     registry = installer.load_registry()
     macro_circuits = installer.installed_circuits(registry)
+    registry_hash = _hashlib.sha256(
+        json.dumps(sorted(registry.keys())).encode()
+    ).hexdigest()[:16]
     _macro_roles = detect_macro_roles(registry)
 
     verified = 0
@@ -345,11 +402,15 @@ def run_iteration(
         if _role_pack:
             memory_pack_str = (memory_pack_str + "\n" + _role_pack).strip() if memory_pack_str else _role_pack
 
+        user_prompt_preview = build_user_prompt(spec, ordered_registry, memory_pack_str)
+        prompt_chars = len(SYSTEM_PROMPT) + len(user_prompt_preview)
         env_ctx = {
             "spec": spec_name,
             "arity": arity,
             "available_macros": list(ordered_registry.keys()),
             "retrieved_card_ids": retrieved_ids,
+            "retrieved_card_count": len(retrieved_ids),
+            "prompt_chars": prompt_chars,
             "prompt_budget": 600,
             "model": model,
         }
@@ -358,6 +419,7 @@ def run_iteration(
         outcome = _run_one_attempt(
             spec, ordered_registry, generate, macro_circuits,
             model=model, iteration=iteration, memory_pack=memory_pack_str,
+            registry_hash=registry_hash,
         )
         _print_outcome(outcome)
         _log_attempt(run_dir, run_id, spec_name, iteration, outcome,
@@ -379,14 +441,18 @@ def run_iteration(
                 lean_stderr_tail=outcome.get("lean_stderr"),
                 macro_name=outcome.get("macro_name"),
             )
-            # For majority/carry specs that hit lean_failed, append the role map
-            # so the repair prompt explicitly names the macros to compose.
-            if _role_pack and outcome["status"] == attempts.STATUS_LEAN_FAILED:
+            # For majority/carry specs, append role map (with arity warnings) to
+            # repair prompt for BOTH lean_failed AND arity_mismatch — the LLM
+            # needs the 3-arg schema even when it previously got the arity wrong.
+            if _role_pack and outcome["status"] in (
+                attempts.STATUS_LEAN_FAILED, attempts.STATUS_ARITY_MISMATCH
+            ):
                 repair_pack = repair_pack + "\n" + _role_pack
             print(f"    → repair ({outcome['status']})...", flush=True)
             outcome_r = _run_one_attempt(
                 spec, ordered_registry, generate, macro_circuits,
                 model=model, iteration=iteration, memory_pack=repair_pack,
+                use_llm_cache=False, registry_hash=registry_hash,
             )
             _print_outcome(outcome_r)
             _log_attempt(run_dir, run_id, spec_name, iteration, outcome_r,
@@ -456,6 +522,7 @@ def run(
     prev_macro_count = len(installer.load_registry())
     prev_theorem_count = 0
     rag_card_count = 0
+    last_mined_record_count = 0  # incremental mining: only re-mine when forest grows
 
     for i in range(iterations):
         print(f"\n=== iteration {i + 1}/{iterations} ===")
@@ -472,21 +539,26 @@ def run(
 
         records = list(forest.iter_records())
         current_registry = installer.load_registry()
-        candidates = miner.mine(records, min_support=min_support, min_size=min_size)
-        reg_names = set(current_registry) if current_registry else None
-        comp_candidates = miner.mine_macro_compositions(
-            records, min_support=min_support, min_size=2,
-            registered_macros=reg_names,
-        )
-        seen_keys = {c.key for c in candidates}
-        for cc in comp_candidates:
-            if cc.key not in seen_keys:
-                candidates.append(cc)
-                seen_keys.add(cc.key)
-        print(
-            f"  mined {len(candidates)} candidate macro(s) from {len(records)} proof(s)"
-            f" ({len(comp_candidates)} composition candidate(s))"
-        )
+        if len(records) > last_mined_record_count:
+            candidates = miner.mine(records, min_support=min_support, min_size=min_size)
+            reg_names = set(current_registry) if current_registry else None
+            comp_candidates = miner.mine_macro_compositions(
+                records, min_support=min_support, min_size=2,
+                registered_macros=reg_names,
+            )
+            seen_keys = {c.key for c in candidates}
+            for cc in comp_candidates:
+                if cc.key not in seen_keys:
+                    candidates.append(cc)
+                    seen_keys.add(cc.key)
+            last_mined_record_count = len(records)
+            print(
+                f"  mined {len(candidates)} candidate macro(s) from {len(records)} proof(s)"
+                f" ({len(comp_candidates)} composition candidate(s))"
+            )
+        else:
+            candidates = []
+            print(f"  no new proofs since last mining pass — skipping miner")
         if candidates:
             registry = installer.install(candidates)
         else:
@@ -499,6 +571,12 @@ def run(
             n_exported = _run_theorem_exporter(registry)
             if n_exported:
                 print(f"  exported {n_exported} new theorem card(s) to memory")
+            # Auto-generate TheoremGen.lean theorems so the GUI and reports can
+            # show which properties were Lean-verified via simp (not just decide).
+            try:
+                _gen_theorems(registry, run_dir=run_dir)
+            except Exception:
+                pass  # theorem_gen failures are non-fatal
 
         # --- Metrics ----------------------------------------------------------
         cur_macro_count = len(registry) if registry else 0

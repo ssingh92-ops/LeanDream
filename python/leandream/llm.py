@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import time
 from typing import Any
@@ -15,6 +16,12 @@ from .ast import Circuit, _Node
 from .prompts import SYSTEM_PROMPT, build_user_prompt
 
 load_dotenv()
+
+
+def _prompt_digest(system: str, user: str, model: str) -> str:
+    """16-char SHA-256 digest used as LLM cache key."""
+    payload = f"{model}||{system}||{user}"
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
 class ProgramResponse(_Node):
@@ -54,17 +61,34 @@ def generate_circuit(
     model: str | None = None,
     iteration: int = 0,
     memory_pack: str = "",
+    use_cache: bool = True,
 ) -> tuple[Circuit, str]:
     """Ask the LLM for a program. Returns (circuit, reasoning).
 
-    Every call (success or failure) is appended to `prompts/<spec>/<ts>.json`
+    Checks a persistent disk cache keyed by (model, system_prompt, user_prompt)
+    before making an API call.  Set ``use_cache=False`` to always call the API
+    (e.g. during repair passes where context changes each time).
+
+    Every call (success or failure) is appended to ``prompts/<spec>/<ts>.json``
     so the full conversation history is auditable from the web viewer.
     """
+    from .cache import llm_response_cache
+
     client = _get_client()
     macros = installed_macros or {}
     user_prompt = build_user_prompt(spec, macros, memory_pack=memory_pack)
     chosen_model = model or default_model()
 
+    # --- LLM response cache ---------------------------------------------------
+    cache_key = _prompt_digest(SYSTEM_PROMPT, user_prompt, chosen_model)
+    if use_cache:
+        llm_cache = llm_response_cache()
+        cached = llm_cache.get(cache_key)
+        if cached is not None:
+            circuit = _CIRCUIT_ADAPTER.validate_python(cached["circuit"])
+            return circuit, cached.get("reasoning", "")
+
+    # --- Live API call --------------------------------------------------------
     t0 = time.monotonic()
     try:
         resp = client.responses.parse(
@@ -79,6 +103,7 @@ def generate_circuit(
         program = resp.output_parsed
         if program is None:
             raise RuntimeError(f"LLM returned no parsed output: {resp}")
+        circuit_dict = _CIRCUIT_ADAPTER.dump_python(program.circuit, mode="json")
         promptlog.record(
             spec=spec["name"],
             iteration=iteration,
@@ -88,9 +113,14 @@ def generate_circuit(
             macros_in_prompt=sorted(macros.keys()),
             elapsed_seconds=elapsed,
             ok=True,
-            response_circuit=_CIRCUIT_ADAPTER.dump_python(program.circuit, mode="json"),
+            response_circuit=circuit_dict,
             reasoning=program.reasoning,
         )
+        if use_cache:
+            llm_response_cache().put(cache_key, {
+                "circuit": circuit_dict,
+                "reasoning": program.reasoning,
+            })
         return program.circuit, program.reasoning
     except Exception as e:
         elapsed = time.monotonic() - t0

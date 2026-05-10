@@ -341,7 +341,7 @@ def generate_report(run_id: str, specs: list[dict] | None = None) -> Path:
 {"DSL hierarchy growing — level >0 macros present." if sum(v for k,v in level_dist.items() if k>0) > 0 else "DSL flat — all macros at level 0 (no macro-of-macro compositions yet)."}
 """.strip()))
 
-    # ---- Recommendations (section 15 — kept separate so user can extend) -----
+    # ---- Recommendations (section 15) ----------------------------------------
     recs: list[str] = []
     if n_verified == 0:
         recs.append("- **No proofs verified.** Check LLM connectivity and spec files.")
@@ -372,6 +372,105 @@ def generate_report(run_id: str, specs: list[dict] | None = None) -> Path:
     if not recs:
         recs.append("- System operating normally. Continue accumulating proofs.")
     sections.append(_section(15, "Recommendations", "\n".join(recs)))
+
+    # 17. Speed Report
+    from collections import defaultdict as _dd
+    total_llm_ms = sum(r.get("llm_time_ms") or 0 for r in all_attempts)
+    total_lean_ms = sum(r.get("lean_time_ms") or 0 for r in all_attempts)
+    lean_cached_count = sum(1 for r in all_attempts if r.get("lean_cached"))
+    lean_total = sum(1 for r in all_attempts if r.get("lean_time_ms") is not None)
+    lean_cache_rate = lean_cached_count / lean_total if lean_total else 0.0
+    qc_rejected = sum(1 for r in all_attempts if r.get("error_type") == "quickcheck_failed")
+    qc_total = sum(1 for r in all_attempts if r.get("quickcheck_ms") is not None)
+    # Per-spec average lean time — find top 5 slowest
+    spec_lean: dict[str, list[float]] = _dd(list)
+    for r in all_attempts:
+        lt = r.get("lean_time_ms")
+        if lt:
+            spec_lean[r.get("spec", "?")].append(lt)
+    top5_slow = sorted(
+        ((sn, sum(ts) / len(ts)) for sn, ts in spec_lean.items()),
+        key=lambda x: -x[1],
+    )[:5]
+    slow_rows = "\n".join(
+        f"| {sn} | {_fmt_ms(avg_t)} |" for sn, avg_t in top5_slow
+    ) or "_No data._"
+    # Cache stats
+    try:
+        from .cache import lean_verify_cache, llm_response_cache, property_prove_cache
+        lean_cs = lean_verify_cache().stats()
+        llm_cs = llm_response_cache().stats()
+        prop_cs = property_prove_cache().stats()
+        cache_rows = (
+            f"| lean_verify | {lean_cs['hits']} | {lean_cs['misses']} | {lean_cs['hit_rate']:.1%} | {lean_cs['size']} |\n"
+            f"| llm_response | {llm_cs['hits']} | {llm_cs['misses']} | {llm_cs['hit_rate']:.1%} | {llm_cs['size']} |\n"
+            f"| property_prove | {prop_cs['hits']} | {prop_cs['misses']} | {prop_cs['hit_rate']:.1%} | {prop_cs['size']} |"
+        )
+    except Exception:
+        cache_rows = "_Cache stats unavailable._"
+    speed_body = f"""
+| Metric | Value |
+|--------|-------|
+| Total LLM time | {_fmt_ms(total_llm_ms)} |
+| Total Lean time | {_fmt_ms(total_lean_ms)} |
+| Avg LLM / attempt | {_fmt_ms(total_llm_ms / total if total else None)} |
+| Avg Lean / attempt | {_fmt_ms(total_lean_ms / total if total else None)} |
+| Lean cache hits | {lean_cached_count} / {lean_total} ({lean_cache_rate:.1%}) |
+| Quickcheck fast-rejects | {qc_rejected} / {qc_total} |
+
+### Cache Statistics (this session)
+
+| Cache | Hits | Misses | Hit Rate | Size |
+|-------|------|--------|----------|------|
+{cache_rows}
+
+### Top 5 Slowest Specs (avg Lean ms)
+
+| Spec | Avg Lean Time |
+|------|---------------|
+{slow_rows}
+""".strip()
+    sections.append(_section(17, "Speed Report", speed_body))
+
+    # ---- Stop/Go Decision (section 16) ----------------------------------------
+    overall_rate = n_verified / total if total else 0.0
+    majority_attempts = [r for r in all_attempts if r.get("spec") == "majority3" and r.get("repair_pass", 0) == 0]
+    majority_verified = sum(1 for r in majority_attempts if r.get("status") == STATUS_VERIFIED)
+    majority_rate = majority_verified / len(majority_attempts) if majority_attempts else None
+    arity_mismatch_count = sum(1 for r in all_attempts if r.get("status") == "arity_mismatch")
+    level_gt0 = sum(v for k, v in run_anal.level_distribution.items() if k > 0)
+
+    def _yn(cond: bool | None, yes="✓ Yes", no="✗ No", na="—") -> str:
+        if cond is None:
+            return na
+        return yes if cond else no
+
+    def _warn(cond: bool | None, yes="✓ Yes", warn="⚠ Partial", no="✗ No", na="—") -> str:
+        if cond is None:
+            return na
+        return yes if cond else no
+
+    action = summary.get("recommended_next_action", "inspect_run_data") if summary else "inspect_run_data"
+    blocker_holes = [h for h in holes if h.severity == "blocker" and h.resolution == "unresolved"]
+
+    stopgo_rows = [
+        f"| Stage overall ≥ 90%? | {_yn(overall_rate >= 0.9)} | {_fmt_pct(overall_rate)} |",
+        f"| majority3 verified? | {_yn(majority_rate is None, 'not attempted', _yn(majority_rate >= 0.75) if majority_rate is not None else '—')} | {(_fmt_pct(majority_rate) if majority_rate is not None else '—')} |",
+        f"| Arity mismatches? | {_yn(arity_mismatch_count == 0, 'None', f'{arity_mismatch_count} (fix_macro_arity_prompt)')} | count={arity_mismatch_count} |",
+        f"| DSL growing vertically? | {_yn(level_gt0 > 0)} | level>0 macros: {level_gt0} |",
+        f"| Macro reuse healthy? | {_yn(run_anal.reuse.macro_usage_rate >= 0.5)} | {_fmt_pct(run_anal.reuse.macro_usage_rate)} usage |",
+        f"| Blocker holes? | {_yn(len(blocker_holes) == 0, 'None', f'{len(blocker_holes)} blocker(s)')} | {', '.join(h.spec for h in blocker_holes) or 'none'} |",
+        f"| Proceed to next stage? | {_yn(action == 'proceed_to_next_stage')} | action: `{action}` |",
+    ]
+    stopgo_table = (
+        "| Question | Answer | Detail |\n"
+        "|----------|--------|--------|\n"
+        + "\n".join(stopgo_rows)
+    )
+    sections.append(_section(16, "Stop/Go Decision", f"""{stopgo_table}
+
+**Recommended next action: `{action}`**
+""".strip()))
 
     # ---- Write report -------------------------------------------------------
     header = f"# LeanDream Run Report\n\nRun: `{run_id}`\n"

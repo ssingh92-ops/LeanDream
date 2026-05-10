@@ -1,0 +1,17 @@
+{
+  "name": "or3",
+  "description": "3-input OR. Output is 1 when at least one input is 1.",
+  "arity": 3,
+  "inputs": ["a", "b", "c"],
+  "lean_spec": "Specs.or3",
+  "truth_table": [
+    {"inputs": [false, false, false], "output": false},
+    {"inputs": [false, false, true ], "output": true },
+    {"inputs": [false, true,  false], "output": true },
+    {"inputs": [false, true,  true ], "output": true },
+    {"inputs": [true,  false, false], "output": true },
+    {"inputs": [true,  false, true ], "output": true },
+    {"inputs": [true,  true,  false], "output": true },
+    {"inputs": [true,  true,  true ], "output": true }
+  ]
+}

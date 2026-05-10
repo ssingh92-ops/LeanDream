@@ -225,15 +225,19 @@ def prove_all(registry: dict[str, dict], *, verbose: bool = True) -> dict[str, d
     """Prove algebraic properties for every non-alias macro.
 
     Strategy:
-    1. Fast path: collect all Python-pre-filtered properties, write one
-       Properties.lean, run one lake build.
-    2. If the fast path fails (Python predicate disagrees with Lean — should be
-       rare for decidable bool theorems), fall back to per-macro isolation:
-       accept a macro's properties only if its theorems build cleanly when added
-       incrementally to the already-accepted set.
-    3. A failed macro's properties are logged but do not clear other macros.
+    1. Per-macro property cache check: if (macro_name, tt_key, toolchain) is
+       cached, skip Lean for that macro entirely.
+    2. Fast path for uncached macros: collect all their Python-pre-filtered
+       theorems, write one Properties.lean, run one lake build.
+    3. If fast path fails, fall back to per-macro isolation.
+    4. Cache newly-proven results so future runs skip Lean for unchanged macros.
     """
+    from .cache import property_prove_cache
+    from .verify import _lean_toolchain_version
+
     reset_candidate()
+    prop_cache = property_prove_cache()
+    toolchain = _lean_toolchain_version()
 
     body_circuits: dict[str, Circuit] = {
         nm: _ADAPTER.validate_python(info["ast"])
@@ -264,31 +268,85 @@ def prove_all(registry: dict[str, dict], *, verbose: bool = True) -> dict[str, d
         passing = [p for p in cands if p.predicate(tt)]
         macro_candidates[name] = passing
 
-    # Fast path: all macros in one build.
-    all_theorems = [
+    # --- Per-macro cache check -----------------------------------------------
+    cached_props: dict[str, list[str]] = {}   # macro_name -> already-proven props
+    uncached: list[str] = []                   # macros that need Lean
+
+    for name, props in macro_candidates.items():
+        tt = macro_tt.get(name, "")
+        cache_key = f"{name}|{tt}|{toolchain}"
+        hit = prop_cache.get(cache_key)
+        if hit is not None:
+            cached_props[name] = hit.get("properties", [])
+        elif props:
+            uncached.append(name)
+        else:
+            cached_props[name] = []
+
+    # Apply cached results immediately
+    n_cached = len(cached_props)
+    for name, ok_names in cached_props.items():
+        registry[name]["properties"] = ok_names
+        if verbose and ok_names:
+            print(f"  ✦ {name} [cached]: {', '.join(ok_names)}")
+
+    if not uncached:
+        # All macros were cached — rebuild Properties.lean for consistency
+        all_theorems = [
+            (p.theorem_name, p.statement)
+            for name, props in macro_candidates.items()
+            for p in props
+            if p.name in set(cached_props.get(name, []))
+        ]
+        _write_properties(all_theorems)
+        if verbose and n_cached:
+            print(f"  property cache: all {n_cached} macro(s) served from cache — Lean skipped")
+        return registry
+
+    if verbose and n_cached:
+        print(f"  property cache: {n_cached} cached, {len(uncached)} new macro(s) need Lean")
+
+    # Already-accepted theorems from cached macros (needed in Properties.lean baseline)
+    accepted_baseline: list[tuple[str, str]] = [
         (p.theorem_name, p.statement)
-        for props in macro_candidates.values()
-        for p in props
+        for name in cached_props
+        for p in macro_candidates.get(name, [])
+        if p.name in set(cached_props.get(name, []))
     ]
-    _write_properties(all_theorems)
+
+    # Fast path: all uncached macros in one build.
+    uncached_theorems = [
+        (p.theorem_name, p.statement)
+        for name in uncached
+        for p in macro_candidates[name]
+    ]
+    _write_properties(accepted_baseline + uncached_theorems)
     fast = lake_build()
 
+    def _cache_put(name: str, ok_names: list[str]) -> None:
+        tt = macro_tt.get(name, "")
+        prop_cache.put(f"{name}|{tt}|{toolchain}", {"properties": ok_names})
+
     if fast.ok:
-        for name, props in macro_candidates.items():
+        for name in uncached:
+            props = macro_candidates[name]
             ok_names = [p.name for p in props]
             registry[name]["properties"] = ok_names
+            _cache_put(name, ok_names)
             if verbose and ok_names:
                 print(f"  ✦ {name}: {', '.join(ok_names)}")
         return registry
 
-    # Slow path: per-macro isolation.
+    # Slow path: per-macro isolation for uncached macros.
     if verbose:
         print("  ! fast-path Properties.lean build failed — falling back to per-macro isolation")
 
-    accepted: list[tuple[str, str]] = []
-    for name, props in macro_candidates.items():
+    accepted: list[tuple[str, str]] = list(accepted_baseline)
+    for name in uncached:
+        props = macro_candidates[name]
         if not props:
             registry[name]["properties"] = []
+            _cache_put(name, [])
             continue
 
         candidate_theorems = [(p.theorem_name, p.statement) for p in props]
@@ -296,11 +354,14 @@ def prove_all(registry: dict[str, dict], *, verbose: bool = True) -> dict[str, d
         result = lake_build()
         if result.ok:
             accepted.extend(candidate_theorems)
-            registry[name]["properties"] = [p.name for p in props]
+            ok_names = [p.name for p in props]
+            registry[name]["properties"] = ok_names
+            _cache_put(name, ok_names)
             if verbose:
-                print(f"  ✦ {name}: {', '.join(p.name for p in props)}")
+                print(f"  ✦ {name}: {', '.join(ok_names)}")
         else:
             registry[name]["properties"] = []
+            _cache_put(name, [])
             if verbose:
                 print(
                     f"  ! {name}: all properties rejected by Lean "

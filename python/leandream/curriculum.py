@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -55,6 +56,7 @@ class StageGate:
     min_verify_ratio: float   # fraction of specs that must be verified at least once
     min_macros: int           # macros installed before gate passes
     max_retries: int = 1      # how many extra repetitions before giving up
+    max_total_stage_minutes: float | None = None  # wall-clock budget; None = unlimited
 
 
 CURRICULUM: list[StageGate] = [
@@ -83,6 +85,12 @@ CURRICULUM: list[StageGate] = [
         index=4, name="full",
         specs=["all"],
         iterations=5, min_verify_ratio=0.6, min_macros=6,
+    ),
+    StageGate(
+        index=5, name="motif",
+        specs=["and3", "or3", "xnor2", "majority4", "majority3", "mux2", "parity4"],
+        iterations=8, min_verify_ratio=0.7, min_macros=8,
+        max_retries=2,
     ),
 ]
 
@@ -247,8 +255,20 @@ def run_curriculum(
 
         stage_run_dirs = []
         gate_passed = False
+        stage_t0 = time.monotonic()
 
         for attempt_num in range(stage.max_retries + 1):
+            # --- Stage time budget check -----------------------------------------
+            if stage.max_total_stage_minutes is not None:
+                elapsed_min = (time.monotonic() - stage_t0) / 60.0
+                if elapsed_min >= stage.max_total_stage_minutes:
+                    print(
+                        f"\n  STAGE BUDGET EXCEEDED: stage {stage.name!r} used "
+                        f"{elapsed_min:.1f} min ≥ budget {stage.max_total_stage_minutes} min — stopping.",
+                        file=sys.stderr,
+                    )
+                    break
+
             if attempt_num > 0 and verbose:
                 print(f"\n  [retry {attempt_num}/{stage.max_retries}] stage {stage.name}")
 
@@ -274,11 +294,12 @@ def run_curriculum(
             _write_stage_outputs(stage_run_dirs, stage, gate, registry)
 
             if verbose:
+                elapsed_min = (time.monotonic() - stage_t0) / 60.0
                 icon = "✓" if gate.passed else "✗"
                 print(
                     f"\n  {icon} gate [{stage.name}]: "
                     f"verify={gate.verify_ratio:.0%}, macros={gate.macro_count}  "
-                    f"— {gate.reason}"
+                    f"— {gate.reason}  (elapsed {elapsed_min:.1f} min)"
                 )
 
             if gate.passed:
@@ -312,8 +333,8 @@ def run_curriculum(
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="leandream-curriculum")
-    parser.add_argument("--start", type=int, default=0, help="First stage index (0–4).")
-    parser.add_argument("--end", type=int, default=4, help="Last stage index (0–4).")
+    parser.add_argument("--start", type=int, default=0, help="First stage index (0–5).")
+    parser.add_argument("--end", type=int, default=5, help="Last stage index (0–5).")
     parser.add_argument("--mock", action="store_true")
     parser.add_argument("--model", default=None)
     parser.add_argument("--min-support", type=int, default=2)

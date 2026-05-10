@@ -285,7 +285,8 @@ def test_compute_run_summary_blocking_reasons():
         stage_gate_passed=False,
     )
     assert "mux2" in " ".join(summary.blocking_reasons)
-    assert summary.recommended_next_action == "rerun_stage_with_more_iterations"
+    # mux2 blocking hole → specific diagnostic action takes priority over generic rerun
+    assert summary.recommended_next_action == "inspect_mux_hole"
 
 
 # ---------------------------------------------------------------------------

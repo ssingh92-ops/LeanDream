@@ -1,91 +1,91 @@
 {
   "spec:and2": {
-    "alpha": 25.0,
+    "alpha": 37.0,
     "beta": 1.0
   },
   "spec:full_adder_carry": {
-    "alpha": 33.0,
+    "alpha": 45.0,
     "beta": 1.0
   },
   "spec:full_adder_sum": {
-    "alpha": 27.0,
+    "alpha": 39.0,
     "beta": 7.0
   },
   "spec:half_adder_carry": {
-    "alpha": 22.0,
+    "alpha": 34.0,
     "beta": 1.0
   },
   "spec:half_adder_sum": {
-    "alpha": 22.0,
+    "alpha": 34.0,
     "beta": 1.0
   },
   "spec:mux2": {
-    "alpha": 30.0,
+    "alpha": 42.0,
     "beta": 4.0
   },
   "spec:nand2": {
-    "alpha": 22.0,
+    "alpha": 34.0,
     "beta": 1.0
   },
   "spec:or2": {
-    "alpha": 20.0,
+    "alpha": 32.0,
     "beta": 3.0
   },
   "spec:parity3": {
-    "alpha": 27.0,
+    "alpha": 39.0,
     "beta": 7.0
   },
   "spec:xor2": {
-    "alpha": 25.0,
+    "alpha": 37.0,
     "beta": 1.0
   },
   "macro:macro_1": {
-    "alpha": 61.0,
-    "beta": 3.0
+    "alpha": 99.0,
+    "beta": 5.0
   },
   "macro:macro_2": {
-    "alpha": 42.0,
+    "alpha": 75.0,
     "beta": 14.0
   },
   "macro:macro_3": {
-    "alpha": 26.0,
-    "beta": 2.0
+    "alpha": 40.0,
+    "beta": 4.0
   },
   "macro:macro_4": {
-    "alpha": 48.0,
-    "beta": 6.0
+    "alpha": 60.0,
+    "beta": 17.0
   },
   "macro:macro_5": {
-    "alpha": 27.0,
-    "beta": 8.0
+    "alpha": 39.0,
+    "beta": 30.0
   },
   "macro:macro_6": {
     "alpha": 1.0,
-    "beta": 2.0
+    "beta": 6.0
   },
   "macro:macro_7": {
     "alpha": 1.0,
     "beta": 1.0
   },
   "macro:macro_8": {
-    "alpha": 45.0,
+    "alpha": 69.0,
     "beta": 3.0
   },
   "spec:parity4": {
-    "alpha": 33.0,
+    "alpha": 45.0,
     "beta": 1.0
   },
   "spec:xor_chain4": {
-    "alpha": 31.0,
+    "alpha": 43.0,
     "beta": 3.0
   },
   "spec:majority3": {
     "alpha": 23.0,
-    "beta": 11.0
+    "beta": 23.0
   },
   "macro:macro_9": {
-    "alpha": 61.0,
-    "beta": 1.0
+    "alpha": 85.0,
+    "beta": 2.0
   },
   "macro:macro_10": {
     "alpha": 1.0,
@@ -94,5 +94,29 @@
   "macro:macro_11": {
     "alpha": 1.0,
     "beta": 3.0
+  },
+  "spec:and3": {
+    "alpha": 9.0,
+    "beta": 5.0
+  },
+  "spec:majority4": {
+    "alpha": 1.0,
+    "beta": 13.0
+  },
+  "spec:or3": {
+    "alpha": 6.0,
+    "beta": 8.0
+  },
+  "spec:xnor2": {
+    "alpha": 13.0,
+    "beta": 1.0
+  },
+  "macro:macro_12": {
+    "alpha": 7.0,
+    "beta": 1.0
+  },
+  "macro:macro_13": {
+    "alpha": 4.0,
+    "beta": 1.0
   }
 }

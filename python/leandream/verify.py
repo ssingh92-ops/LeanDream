@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import subprocess
 import time
 from dataclasses import dataclass
@@ -16,6 +17,14 @@ LEAN_DIR = REPO_ROOT / "lean"
 CANDIDATE_PATH = LEAN_DIR / "LeanDream" / "Candidate.lean"
 
 DEFAULT_TIMEOUT_SECONDS = 120
+
+# Lean toolchain version — baked into cache keys so changing the toolchain
+# automatically invalidates all cached results.
+def _lean_toolchain_version() -> str:
+    toolchain_file = LEAN_DIR / "lean-toolchain"
+    if toolchain_file.exists():
+        return toolchain_file.read_text().strip()
+    return "unknown"
 
 _DEFAULT_CANDIDATE_SOURCE = """\
 import LeanDream.DSL
@@ -43,6 +52,7 @@ class VerifyResult:
     elapsed_seconds: float
     error: str | None = None
     proof_mode: str | None = None  # "decide" | "native_decide"
+    cached: bool = False           # True when result came from disk cache
 
 
 def reset_candidate() -> None:
@@ -87,22 +97,63 @@ def lake_build(timeout: int = DEFAULT_TIMEOUT_SECONDS) -> VerifyResult:
         )
 
 
+def _lean_cache_key(source: str, lean_spec: str) -> str:
+    digest = hashlib.sha256(source.encode()).hexdigest()[:20]
+    return f"{lean_spec}|{digest}|{_lean_toolchain_version()}"
+
+
 def verify_candidate(
     candidate: Circuit,
     arity: int,
     lean_spec: str,
     timeout: int = DEFAULT_TIMEOUT_SECONDS,
+    *,
+    registry_hash: str = "",
 ) -> VerifyResult:
     """Stage the candidate, run `lake build`, then restore the default file.
 
-    Restoring after the run keeps subsequent builds (e.g., macro re-verification)
-    from being blocked by a failing candidate left in the tree.
+    Checks a persistent disk cache before invoking Lean.  The cache key
+    covers the generated source + Lean toolchain version so changing either
+    automatically invalidates the entry.
+
+    Args:
+        candidate:     Circuit to verify.
+        arity:         Number of spec inputs.
+        lean_spec:     Lean spec identifier (e.g. ``"Specs.and2"``).
+        timeout:       Seconds before lake build is killed.
+        registry_hash: Optional extra discriminator (e.g. hash of current
+                       macro registry) baked into the cache key.
     """
+    from .cache import lean_verify_cache
+
     source = candidate_lean_source(candidate, arity, lean_spec)
+    cache_key = _lean_cache_key(source + registry_hash, lean_spec)
+
+    cache = lean_verify_cache()
+    hit = cache.get(cache_key)
+    if hit is not None:
+        return VerifyResult(
+            ok=hit["ok"],
+            stdout=hit.get("stdout", ""),
+            stderr=hit.get("stderr", ""),
+            elapsed_seconds=0.0,
+            error=hit.get("error"),
+            proof_mode=hit.get("proof_mode"),
+            cached=True,
+        )
+
     CANDIDATE_PATH.write_text(source)
     try:
         result = lake_build(timeout=timeout)
         result.proof_mode = tactic_for(arity)
-        return result
     finally:
         reset_candidate()
+
+    cache.put(cache_key, {
+        "ok": result.ok,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "error": result.error,
+        "proof_mode": result.proof_mode,
+    })
+    return result
