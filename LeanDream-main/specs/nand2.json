@@ -1,0 +1,13 @@
+{
+  "name": "nand2",
+  "description": "2-input NAND.",
+  "arity": 2,
+  "inputs": ["a", "b"],
+  "lean_spec": "Specs.nand2",
+  "truth_table": [
+    {"inputs": [false, false], "output": true },
+    {"inputs": [true,  false], "output": true },
+    {"inputs": [false, true ], "output": true },
+    {"inputs": [true,  true ], "output": false}
+  ]
+}

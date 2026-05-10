@@ -1,0 +1,13 @@
+{
+  "name": "and2",
+  "description": "2-input AND.",
+  "arity": 2,
+  "inputs": ["a", "b"],
+  "lean_spec": "Specs.and2",
+  "truth_table": [
+    {"inputs": [false, false], "output": false},
+    {"inputs": [true,  false], "output": false},
+    {"inputs": [false, true ], "output": false},
+    {"inputs": [true,  true ], "output": true }
+  ]
+}

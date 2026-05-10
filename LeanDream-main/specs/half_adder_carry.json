@@ -1,0 +1,13 @@
+{
+  "name": "half_adder_carry",
+  "description": "Half-adder carry bit. Input 0 = a, input 1 = b. Output = a AND b.",
+  "arity": 2,
+  "inputs": ["a", "b"],
+  "lean_spec": "Specs.half_adder_carry",
+  "truth_table": [
+    {"inputs": [false, false], "output": false},
+    {"inputs": [true,  false], "output": false},
+    {"inputs": [false, true ], "output": false},
+    {"inputs": [true,  true ], "output": true }
+  ]
+}

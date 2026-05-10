@@ -1,0 +1,17 @@
+{
+  "name": "parity3",
+  "description": "Odd parity over 3 inputs. Output = a XOR b XOR c.",
+  "arity": 3,
+  "inputs": ["a", "b", "c"],
+  "lean_spec": "Specs.parity3",
+  "truth_table": [
+    {"inputs": [false, false, false], "output": false},
+    {"inputs": [true,  false, false], "output": true },
+    {"inputs": [false, true,  false], "output": true },
+    {"inputs": [true,  true,  false], "output": false},
+    {"inputs": [false, false, true ], "output": true },
+    {"inputs": [true,  false, true ], "output": false},
+    {"inputs": [false, true,  true ], "output": false},
+    {"inputs": [true,  true,  true ], "output": true }
+  ]
+}

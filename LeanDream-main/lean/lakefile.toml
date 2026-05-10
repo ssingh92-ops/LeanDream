@@ -1,0 +1,5 @@
+name = "LeanDream"
+defaultTargets = ["LeanDream"]
+
+[[lean_lib]]
+name = "LeanDream"

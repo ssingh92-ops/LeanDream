@@ -1,0 +1,13 @@
+{
+  "name": "half_adder_sum",
+  "description": "Half-adder sum bit. Input 0 = a, input 1 = b. Output = a XOR b.",
+  "arity": 2,
+  "inputs": ["a", "b"],
+  "lean_spec": "Specs.half_adder_sum",
+  "truth_table": [
+    {"inputs": [false, false], "output": false},
+    {"inputs": [true,  false], "output": true },
+    {"inputs": [false, true ], "output": true },
+    {"inputs": [true,  true ], "output": false}
+  ]
+}

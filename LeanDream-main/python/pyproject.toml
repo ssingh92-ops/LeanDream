@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "leandream"
+version = "0.1.0"
+description = "Neuro-symbolic DSL generation with Lean verification"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.50.0",
+    "pydantic>=2.5.0",
+    "python-dotenv>=1.0.0",
+    "rich>=13.7.0",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
+[project.scripts]
+leandream = "leandream.orchestrator:main"
+leandream-web = "leandream.web:main"
+leandream-bootstrap = "leandream.bootstrap:main"
+leandream-doctor = "leandream.doctor:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["leandream*"]
+
+[tool.setuptools.package-data]
+leandream = ["web_static/*"]

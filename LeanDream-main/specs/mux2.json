@@ -1,0 +1,17 @@
+{
+  "name": "mux2",
+  "description": "2-to-1 multiplexer. Input 0 = sel, input 1 = a, input 2 = b. Output = a if sel else b.",
+  "arity": 3,
+  "inputs": ["sel", "a", "b"],
+  "lean_spec": "Specs.mux2",
+  "truth_table": [
+    {"inputs": [false, false, false], "output": false},
+    {"inputs": [true,  false, false], "output": false},
+    {"inputs": [false, true,  false], "output": false},
+    {"inputs": [true,  true,  false], "output": true },
+    {"inputs": [false, false, true ], "output": true },
+    {"inputs": [true,  false, true ], "output": false},
+    {"inputs": [false, true,  true ], "output": true },
+    {"inputs": [true,  true,  true ], "output": true }
+  ]
+}

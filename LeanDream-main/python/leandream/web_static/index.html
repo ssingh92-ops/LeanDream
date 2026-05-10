@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>LeanDream Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>LeanDream</h1>
+    <div class="tagline">Neuro-symbolic DSL generation with Lean verification</div>
+    <div id="stats" class="stats"></div>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="specs" class="active">Specs</button>
+    <button data-tab="macros">Macros</button>
+    <button data-tab="proofs">Proof Forest</button>
+    <button data-tab="prompts">Prompts</button>
+    <button data-tab="timeline">Timeline</button>
+    <button data-tab="bandit">Bandit</button>
+    <button data-tab="rag">RAG</button>
+    <button data-tab="dsl">DSL Source</button>
+  </nav>
+
+  <main>
+    <section id="tab-specs" class="tab active">
+      <div class="split">
+        <aside id="specs-list" class="list"></aside>
+        <article id="specs-detail" class="detail">
+          <p class="empty">Select a spec on the left.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="tab-macros" class="tab">
+      <div id="macros-table"></div>
+    </section>
+
+    <section id="tab-proofs" class="tab">
+      <div class="split">
+        <aside class="list">
+          <label>Filter by spec
+            <select id="proof-filter">
+              <option value="">all</option>
+            </select>
+          </label>
+          <div id="proofs-list"></div>
+        </aside>
+        <article id="proofs-detail" class="detail">
+          <p class="empty">Select a proof on the left.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="tab-prompts" class="tab">
+      <div class="split">
+        <aside class="list">
+          <label>Filter by spec
+            <select id="prompt-filter">
+              <option value="">all</option>
+            </select>
+          </label>
+          <label>Iteration
+            <select id="prompt-iter-filter">
+              <option value="">all</option>
+            </select>
+          </label>
+          <div id="prompts-list"></div>
+        </aside>
+        <article id="prompts-detail" class="detail">
+          <p class="empty">Select a prompt on the left.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="tab-timeline" class="tab">
+      <div class="toolbar">
+        <label>Run
+          <select id="timeline-run-filter"><option value="">all runs</option></select>
+        </label>
+        <label>Spec
+          <select id="timeline-spec-filter"><option value="">all specs</option></select>
+        </label>
+        <label>Status
+          <select id="timeline-status-filter"><option value="">all statuses</option></select>
+        </label>
+      </div>
+      <div id="timeline-table"></div>
+    </section>
+
+    <section id="tab-bandit" class="tab">
+      <div class="bandit-panels">
+        <div>
+          <div class="section-label">Spec arms — Thompson posteriors</div>
+          <div id="bandit-spec-table"></div>
+        </div>
+        <div>
+          <div class="section-label">Macro arms — Thompson posteriors</div>
+          <div id="bandit-macro-table"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-rag" class="tab">
+      <div class="toolbar">
+        <label>Type
+          <select id="rag-type-filter"><option value="">all types</option></select>
+        </label>
+      </div>
+      <div id="rag-cards"></div>
+    </section>
+
+    <section id="tab-dsl" class="tab">
+      <h2>Macros.lean (live)</h2>
+      <pre id="dsl-source"></pre>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

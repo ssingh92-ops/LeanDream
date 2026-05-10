@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Env
+.env
+
+# Generated runtime artifacts
+proofs/
+macros/
+prompts/
+lean/.lake/
+lean/build/
+lean/lake-packages/
+lean/LeanDream/Candidate.lean

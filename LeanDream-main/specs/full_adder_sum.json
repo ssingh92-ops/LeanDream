@@ -1,0 +1,17 @@
+{
+  "name": "full_adder_sum",
+  "description": "Full-adder sum bit. Input 0 = a, input 1 = b, input 2 = cin. Output = a XOR b XOR cin.",
+  "arity": 3,
+  "inputs": ["a", "b", "cin"],
+  "lean_spec": "Specs.full_adder_sum",
+  "truth_table": [
+    {"inputs": [false, false, false], "output": false},
+    {"inputs": [true,  false, false], "output": true },
+    {"inputs": [false, true,  false], "output": true },
+    {"inputs": [true,  true,  false], "output": false},
+    {"inputs": [false, false, true ], "output": true },
+    {"inputs": [true,  false, true ], "output": false},
+    {"inputs": [false, true,  true ], "output": false},
+    {"inputs": [true,  true,  true ], "output": true }
+  ]
+}

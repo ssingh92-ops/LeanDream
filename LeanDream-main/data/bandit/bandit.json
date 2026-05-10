@@ -1,0 +1,54 @@
+{
+  "spec:and2": {
+    "alpha": 3.0,
+    "beta": 1.0
+  },
+  "spec:full_adder_carry": {
+    "alpha": 3.0,
+    "beta": 1.0
+  },
+  "spec:full_adder_sum": {
+    "alpha": 3.0,
+    "beta": 1.0
+  },
+  "spec:half_adder_carry": {
+    "alpha": 3.0,
+    "beta": 1.0
+  },
+  "spec:half_adder_sum": {
+    "alpha": 3.0,
+    "beta": 1.0
+  },
+  "spec:mux2": {
+    "alpha": 2.0,
+    "beta": 2.0
+  },
+  "spec:nand2": {
+    "alpha": 3.0,
+    "beta": 1.0
+  },
+  "spec:or2": {
+    "alpha": 2.0,
+    "beta": 2.0
+  },
+  "spec:parity3": {
+    "alpha": 3.0,
+    "beta": 1.0
+  },
+  "spec:xor2": {
+    "alpha": 3.0,
+    "beta": 1.0
+  },
+  "macro:macro_1": {
+    "alpha": 5.0,
+    "beta": 1.0
+  },
+  "macro:macro_2": {
+    "alpha": 4.0,
+    "beta": 1.0
+  },
+  "macro:macro_3": {
+    "alpha": 3.0,
+    "beta": 2.0
+  }
+}

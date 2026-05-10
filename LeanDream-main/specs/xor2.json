@@ -1,0 +1,13 @@
+{
+  "name": "xor2",
+  "description": "2-input XOR.",
+  "arity": 2,
+  "inputs": ["a", "b"],
+  "lean_spec": "Specs.xor2",
+  "truth_table": [
+    {"inputs": [false, false], "output": false},
+    {"inputs": [true,  false], "output": true },
+    {"inputs": [false, true ], "output": true },
+    {"inputs": [true,  true ], "output": false}
+  ]
+}

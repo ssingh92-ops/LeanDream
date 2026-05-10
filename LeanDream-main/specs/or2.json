@@ -1,0 +1,13 @@
+{
+  "name": "or2",
+  "description": "2-input OR.",
+  "arity": 2,
+  "inputs": ["a", "b"],
+  "lean_spec": "Specs.or2",
+  "truth_table": [
+    {"inputs": [false, false], "output": false},
+    {"inputs": [true,  false], "output": true },
+    {"inputs": [false, true ], "output": true },
+    {"inputs": [true,  true ], "output": true }
+  ]
+}
