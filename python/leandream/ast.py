@@ -194,7 +194,10 @@ def expand_macros(
                 f"got {len(c.args)}"
             )
         new_stack = _stack + (c.name,)
-        expanded_args = [expand_macros(a, registry, new_stack) for a in c.args]
+        # Expand args in the *caller's* scope (_stack), not new_stack.
+        # new_stack only guards the body — args are caller-context expressions
+        # and a same-name arg (e.g. f(f(x))) is nested application, not a cycle.
+        expanded_args = [expand_macros(a, registry, _stack) for a in c.args]
         substituted = substitute(body, expanded_args)
         return expand_macros(substituted, registry, new_stack)
     if isinstance(c, (Var, Const)):

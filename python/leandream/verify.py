@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .ast import Circuit
+from .proof_router import tactic_for
 from .translate import candidate_lean_source
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -41,6 +42,7 @@ class VerifyResult:
     stderr: str
     elapsed_seconds: float
     error: str | None = None
+    proof_mode: str | None = None  # "decide" | "native_decide"
 
 
 def reset_candidate() -> None:
@@ -99,6 +101,8 @@ def verify_candidate(
     source = candidate_lean_source(candidate, arity, lean_spec)
     CANDIDATE_PATH.write_text(source)
     try:
-        return lake_build(timeout=timeout)
+        result = lake_build(timeout=timeout)
+        result.proof_mode = tactic_for(arity)
+        return result
     finally:
         reset_candidate()

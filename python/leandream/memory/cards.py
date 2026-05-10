@@ -31,6 +31,8 @@ TYPE_FAILURE = "failure"
 TYPE_MACRO = "macro"
 TYPE_THEOREM_PROPERTY = "theorem_property"
 TYPE_DSL_ACTION = "dsl_action"
+TYPE_HOLE = "hole"
+TYPE_STRATEGY = "strategy"
 
 NULL_INFO_STRUCTURE: dict[str, Any] = {
     "information_preserving": None,
@@ -161,6 +163,12 @@ def failure_card(
     )
 
 
+def _legal_call_schema(name: str, arity: int) -> str:
+    """Return the exact JSON call schema for a macro with given arity."""
+    args_repr = ", ".join("expr" for _ in range(arity))
+    return f'{{"kind":"mac","name":"{name}","args":[{args_repr}]}}'
+
+
 def macro_card(
     name: str,
     arity: int,
@@ -169,6 +177,9 @@ def macro_card(
     support: int,
     members: list[str],
     info_structure: dict | None = None,
+    tt_key: str | None = None,
+    macro_level: int = 0,
+    usage_count: int = 0,
 ) -> Card:
     info = _merge_info(info_structure)
     tags = [
@@ -176,6 +187,7 @@ def macro_card(
         f"macro:{name}",
         f"arity:{arity}",
         f"support:{support}",
+        f"level:{macro_level}",
         *(f"spec:{m}" for m in members),
         *(f"property:{p}" for p in properties),
         *_info_tags(info),
@@ -193,6 +205,11 @@ def macro_card(
             "properties": properties,
             "support": support,
             "members": members,
+            "tt_key": tt_key,
+            "macro_level": macro_level,
+            "usage_count": usage_count,
+            "legal_call_schema": _legal_call_schema(name, arity),
+            "trust_level": "lean_verified",
         },
     )
 
@@ -220,6 +237,81 @@ def theorem_property_card(
             "macro_name": macro_name,
             "property_name": property_name,
             "lean_statement": lean_statement,
+        },
+    )
+
+
+def hole_card(
+    hole_id: str,
+    hole_type: str,
+    specs: list[str],
+    severity: str = "warning",
+    evidence: dict | None = None,
+    status: str = "potential_hole",
+    available_macros: list[str] | None = None,
+    target_truth_table: str | None = None,
+    suggested_repairs: list[str] | None = None,
+) -> Card:
+    tags = [
+        "hole",
+        f"hole:{hole_type}",
+        f"severity:{severity}",
+        f"status:{status}",
+        *(f"spec:{s}" for s in specs),
+    ]
+    return Card(
+        card_id=_new_id(),
+        card_type=TYPE_HOLE,
+        created_at=_now(),
+        tags=tags,
+        info_structure=dict(NULL_INFO_STRUCTURE),
+        payload={
+            "hole_id": hole_id,
+            "hole_type": hole_type,
+            "specs": specs,
+            "severity": severity,
+            "status": status,
+            "evidence": evidence or {},
+            "available_macros_at_detection": available_macros or [],
+            "target_truth_table": target_truth_table,
+            "suggested_existing_repairs": suggested_repairs or [],
+            "detected_by": "system",
+            "trust_level": "system_observed_untrusted_hypothesis",
+        },
+    )
+
+
+def strategy_card(
+    name: str,
+    description: str,
+    formula: str | None = None,
+    applicable_specs: list[str] | None = None,
+    trust_level: str = "prompt_hint",
+    tags_extra: list[str] | None = None,
+) -> Card:
+    """Prompt-only strategy hint card.
+
+    formula: human-readable hint, e.g. 'mux2(s,a,b) = (s AND a) OR (NOT s AND b)'
+    trust_level: always "prompt_hint" — never Lean-verified; used only to guide LLM.
+    """
+    tags = [
+        "strategy",
+        f"strategy:{name}",
+        *(f"spec:{s}" for s in (applicable_specs or [])),
+        *(tags_extra or []),
+    ]
+    return Card(
+        card_id=_new_id(),
+        card_type=TYPE_STRATEGY,
+        created_at=_now(),
+        tags=tags,
+        info_structure=dict(NULL_INFO_STRUCTURE),
+        payload={
+            "name": name,
+            "description": description,
+            "formula": formula,
+            "applicable_specs": applicable_specs or [],
+            "trust_level": trust_level,
         },
     )
 

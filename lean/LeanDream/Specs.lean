@@ -45,4 +45,17 @@ def full_adder_carry : Circuit :=
 def parity3_arity : Nat := 3
 def parity3 : Circuit := .xor (.xor (.var 0) (.var 1)) (.var 2)
 
+-- 3-input majority: output 1 when ≥2 inputs are 1
+def majority3_arity : Nat := 3
+def majority3 : Circuit :=
+  .or (.or (.and (.var 0) (.var 1)) (.and (.var 1) (.var 2))) (.and (.var 0) (.var 2))
+
+-- 4-input parity (odd): a XOR b XOR c XOR d
+def parity4_arity : Nat := 4
+def parity4 : Circuit := .xor (.xor (.xor (.var 0) (.var 1)) (.var 2)) (.var 3)
+
+-- 4-input XOR chain: ((a XOR b) XOR (c XOR d))
+def xor_chain4_arity : Nat := 4
+def xor_chain4 : Circuit := .xor (.xor (.var 0) (.var 1)) (.xor (.var 2) (.var 3))
+
 end LeanDream.Specs

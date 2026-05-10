@@ -15,11 +15,20 @@ from typing import Any
 from pydantic import TypeAdapter
 
 from . import attempts, forest, installer, miner, properties
+from .hole_detector import detect_holes, detect_macro_roles
+from .prompts import build_majority_role_pack
 from .learning.contextual_bandit import ContextualBandit, _macros_used, compute_reward
 from .memory.indexer import run_indexer
 from .memory import retriever as _mem_retriever
 from .memory import prompt_pack as _mem_prompt_pack
 from .memory.theorem_exporter import run_exporter as _run_theorem_exporter
+from .metrics import (
+    compute_iteration_metrics,
+    compute_run_summary,
+    save_metrics,
+    save_summary,
+)
+from .preflight import build_preflight_repair, validate as preflight_validate
 from .repair import build_repair_pack, is_repairable
 from .ast import (
     ArityError,
@@ -141,6 +150,7 @@ def _run_one_attempt(
             "llm_ms": (time.monotonic() - llm_t0) * 1000,
             "lean_ms": None, "lean_stdout": None, "lean_stderr": None,
             "proof_path": None, "reasoning": "", "macro_name": None,
+            "proof_mode": None,
         }
     llm_ms = (time.monotonic() - llm_t0) * 1000
 
@@ -154,6 +164,7 @@ def _run_one_attempt(
             "error_type": "KeyError", "error_message": str(e),
             "llm_ms": llm_ms, "lean_ms": None, "lean_stdout": None, "lean_stderr": None,
             "proof_path": None, "reasoning": reasoning, "macro_name": raw,
+            "proof_mode": None,
         }
     except ArityError as e:
         m = _re.search(r"macro '([^']+)' expects", str(e))
@@ -164,6 +175,7 @@ def _run_one_attempt(
             "llm_ms": llm_ms, "lean_ms": None, "lean_stdout": None, "lean_stderr": None,
             "proof_path": None, "reasoning": reasoning,
             "macro_name": m.group(1) if m else None,
+            "proof_mode": None,
         }
     except ExpansionCycleError as e:
         return {
@@ -172,6 +184,7 @@ def _run_one_attempt(
             "error_type": "ExpansionCycleError", "error_message": str(e),
             "llm_ms": llm_ms, "lean_ms": None, "lean_stdout": None, "lean_stderr": None,
             "proof_path": None, "reasoning": reasoning, "macro_name": None,
+            "proof_mode": None,
         }
     except ExpansionDepthError as e:
         return {
@@ -180,6 +193,18 @@ def _run_one_attempt(
             "error_type": "ExpansionDepthError", "error_message": str(e),
             "llm_ms": llm_ms, "lean_ms": None, "lean_stdout": None, "lean_stderr": None,
             "proof_path": None, "reasoning": reasoning, "macro_name": None,
+            "proof_mode": None,
+        }
+
+    preflight = preflight_validate(circuit, spec["arity"], ordered_registry)
+    if not preflight.ok:
+        return {
+            "status": preflight.status,
+            "circuit": circuit, "expanded": None,
+            "error_type": preflight.error_type, "error_message": preflight.message,
+            "llm_ms": llm_ms, "lean_ms": None, "lean_stdout": None, "lean_stderr": None,
+            "proof_path": None, "reasoning": reasoning,
+            "macro_name": preflight.macro_name, "proof_mode": None,
         }
 
     result = verify_candidate(circuit, spec["arity"], spec["lean_spec"])
@@ -196,6 +221,7 @@ def _run_one_attempt(
             "llm_ms": llm_ms, "lean_ms": lean_ms,
             "lean_stdout": result.stdout, "lean_stderr": result.stderr,
             "proof_path": path, "reasoning": reasoning, "macro_name": None,
+            "proof_mode": result.proof_mode,
         }
     return {
         "status": attempts.STATUS_LEAN_FAILED,
@@ -204,6 +230,7 @@ def _run_one_attempt(
         "llm_ms": llm_ms, "lean_ms": lean_ms,
         "lean_stdout": result.stdout, "lean_stderr": result.stderr,
         "proof_path": None, "reasoning": reasoning, "macro_name": None,
+        "proof_mode": result.proof_mode,
     }
 
 
@@ -245,6 +272,9 @@ def _log_attempt(
     proposer_name: str,
     model: str | None,
     repair_pass: int = 0,
+    stage: int | None = None,
+    retrieved_card_ids: list[str] | None = None,
+    environment: dict | None = None,
 ) -> None:
     circuit = outcome["circuit"]
     expanded = outcome["expanded"]
@@ -258,7 +288,10 @@ def _log_attempt(
         expanded_circuit=_dump(expanded) if expanded else None,
         lean_stdout=outcome["lean_stdout"], lean_stderr=outcome["lean_stderr"],
         proof_id=outcome["proof_path"].name if outcome["proof_path"] else None,
-        model=model, repair_pass=repair_pass,
+        proof_mode=outcome.get("proof_mode"),
+        model=model, repair_pass=repair_pass, stage=stage,
+        retrieved_card_ids=retrieved_card_ids,
+        environment=environment,
     )
 
 
@@ -275,6 +308,7 @@ def run_iteration(
     """One pass through every spec. Returns (verified, attempted)."""
     registry = installer.load_registry()
     macro_circuits = installer.installed_circuits(registry)
+    _macro_roles = detect_macro_roles(registry)
 
     verified = 0
     attempted = 0
@@ -304,6 +338,21 @@ def run_iteration(
         query_tags = ["verified", "macro", f"spec:{spec_name}", f"arity:{arity}"]
         rag_results = _mem_retriever.retrieve(query_tags, rag_cards, top_k=5)
         memory_pack_str = _mem_prompt_pack.pack(rag_results, char_budget=600)
+        retrieved_ids = [c.card.card_id for c in rag_results]
+
+        # Inject semantic role map for majority/carry specs so LLM can use real macro names
+        _role_pack = build_majority_role_pack(spec, _macro_roles)
+        if _role_pack:
+            memory_pack_str = (memory_pack_str + "\n" + _role_pack).strip() if memory_pack_str else _role_pack
+
+        env_ctx = {
+            "spec": spec_name,
+            "arity": arity,
+            "available_macros": list(ordered_registry.keys()),
+            "retrieved_card_ids": retrieved_ids,
+            "prompt_budget": 600,
+            "model": model,
+        }
 
         # --- First attempt ---------------------------------------------------
         outcome = _run_one_attempt(
@@ -312,7 +361,8 @@ def run_iteration(
         )
         _print_outcome(outcome)
         _log_attempt(run_dir, run_id, spec_name, iteration, outcome,
-                     proposer_name=proposer_name, model=model, repair_pass=0)
+                     proposer_name=proposer_name, model=model, repair_pass=0,
+                     retrieved_card_ids=retrieved_ids, environment=env_ctx)
 
         # Track the FINAL outcome for the bandit update (repair may override)
         final_status = outcome["status"]
@@ -329,6 +379,10 @@ def run_iteration(
                 lean_stderr_tail=outcome.get("lean_stderr"),
                 macro_name=outcome.get("macro_name"),
             )
+            # For majority/carry specs that hit lean_failed, append the role map
+            # so the repair prompt explicitly names the macros to compose.
+            if _role_pack and outcome["status"] == attempts.STATUS_LEAN_FAILED:
+                repair_pack = repair_pack + "\n" + _role_pack
             print(f"    → repair ({outcome['status']})...", flush=True)
             outcome_r = _run_one_attempt(
                 spec, ordered_registry, generate, macro_circuits,
@@ -336,7 +390,9 @@ def run_iteration(
             )
             _print_outcome(outcome_r)
             _log_attempt(run_dir, run_id, spec_name, iteration, outcome_r,
-                         proposer_name=proposer_name, model=model, repair_pass=1)
+                         proposer_name=proposer_name, model=model, repair_pass=1,
+                         retrieved_card_ids=retrieved_ids,
+                         environment={**env_ctx, "raw_or_expanded": "repair"})
 
             if outcome_r["status"] == attempts.STATUS_VERIFIED:
                 verified += 1
@@ -352,6 +408,22 @@ def run_iteration(
             for mac_name in _macros_used(raw_d):
                 bandit.update(f"macro:{mac_name}", reward)
         bandit.save()
+
+    # --- Hole detection (post-iteration) ------------------------------------
+    all_iter_attempts = attempts.load(run_dir)
+    current_registry = installer.load_registry()
+    holes = detect_holes(specs, all_iter_attempts, current_registry)
+    if holes:
+        from .memory.card_store import append as _append_card
+        from .memory.indexer import index_holes
+        hole_cards = index_holes(holes)
+        for hc in hole_cards:
+            _append_card(hc)
+        blocker_count = sum(1 for h in holes if h.severity == "blocker")
+        print(
+            f"  holes: {len(holes)} detected "
+            f"({blocker_count} blocker(s)) — {len(hole_cards)} HoleCard(s) stored"
+        )
 
     return verified, attempted
 
@@ -379,6 +451,11 @@ def run(
     run_dir = attempts.run_dir_for(run_id)
     run_dir.mkdir(parents=True, exist_ok=True)
     print(f"run_id: {run_id}  (logs: runs/{run_id}/)")
+
+    iteration_metrics_list = []
+    prev_macro_count = len(installer.load_registry())
+    prev_theorem_count = 0
+    rag_card_count = 0
 
     for i in range(iterations):
         print(f"\n=== iteration {i + 1}/{iterations} ===")
@@ -414,6 +491,7 @@ def run(
             registry = installer.install(candidates)
         else:
             registry = installer.load_registry()
+        n_exported = 0
         if registry:
             print("  proving properties...")
             registry = properties.prove_all(registry)
@@ -422,6 +500,32 @@ def run(
             if n_exported:
                 print(f"  exported {n_exported} new theorem card(s) to memory")
 
+        # --- Metrics ----------------------------------------------------------
+        cur_macro_count = len(registry) if registry else 0
+        bandit_summary: dict = {}
+        try:
+            bandit_summary = ContextualBandit.load().summary()
+        except Exception:
+            pass
+        try:
+            from .memory.card_store import load_all as _load_cards
+            rag_card_count = len(list(_load_cards()))
+        except Exception:
+            rag_card_count = 0
+        iter_metrics = compute_iteration_metrics(
+            run_id, i,
+            attempts.load(run_dir),
+            prev_macro_count=prev_macro_count,
+            cur_macro_count=cur_macro_count,
+            prev_theorem_count=prev_theorem_count,
+            cur_theorem_count=prev_theorem_count + n_exported,
+            rag_card_count=rag_card_count,
+            bandit_summary=bandit_summary,
+        )
+        iteration_metrics_list.append(iter_metrics)
+        prev_macro_count = cur_macro_count
+        prev_theorem_count += n_exported
+
     print("\n=== run complete ===")
     print(f"proof forest: {forest.stats()}")
     reg = installer.load_registry()
@@ -429,9 +533,9 @@ def run(
     for name, info in reg.items():
         print(f"  {name} (support {info['support']}): {info['body_repr']}")
 
-    all_attempts = attempts.load(run_dir)
-    total = len(all_attempts)
-    ok_count = sum(1 for a in all_attempts if a["status"] == attempts.STATUS_VERIFIED)
+    all_attempts_recs = attempts.load(run_dir)
+    total = len(all_attempts_recs)
+    ok_count = sum(1 for a in all_attempts_recs if a["status"] == attempts.STATUS_VERIFIED)
     fail_count = total - ok_count
     print(
         f"attempts: {total} total, {ok_count} verified, {fail_count} failed"
@@ -445,6 +549,18 @@ def run(
         for key, stats in sorted(summary.items()):
             print(f"  {key}: mean={stats['mean']:.3f}  n={stats['n']:.0f}"
                   f"  (α={stats['alpha']:.2f}, β={stats['beta']:.2f})")
+
+    # --- Persist metrics / summary ------------------------------------------
+    if iteration_metrics_list:
+        save_metrics(run_dir, iteration_metrics_list)
+        run_summary = compute_run_summary(
+            run_id, iteration_metrics_list,
+            macro_count=len(reg),
+            theorem_count=prev_theorem_count,
+            rag_card_count=rag_card_count,
+        )
+        save_summary(run_dir, run_summary)
+        print(f"  metrics: runs/{run_id}/metrics.csv  summary: runs/{run_id}/summary.json")
 
 
 def main() -> None:

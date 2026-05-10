@@ -22,8 +22,10 @@ from .cards import (
     NULL_INFO_STRUCTURE,
     Card,
     failure_card,
+    hole_card,
     macro_card,
     proof_trace_card,
+    strategy_card,
     theorem_property_card,
 )
 
@@ -111,11 +113,7 @@ def index_failures(run_dir: Path) -> list[Card]:
 
 
 def index_macros(registry: dict[str, dict]) -> list[Card]:
-    """Emit MacroCards for every entry in the macro registry.
-
-    If the registry entry already has an info_structure field, use it as-is;
-    otherwise infer heuristically from tt_key + arity.
-    """
+    """Emit MacroCards for every entry in the macro registry."""
     cards: list[Card] = []
     for name, info in registry.items():
         stored_info = info.get("info_structure")
@@ -125,10 +123,78 @@ def index_macros(registry: dict[str, dict]) -> list[Card]:
             name=name,
             arity=info.get("arity") or 0,
             body_repr=info.get("body_repr", ""),
-            properties=info.get("properties") or [],
+            properties=list(info.get("properties") or {}).copy(),
             support=info.get("support", 0),
             members=info.get("members") or [],
             info_structure=stored_info,
+            tt_key=info.get("tt_key"),
+            macro_level=info.get("macro_level", 0),
+        ))
+    return cards
+
+
+def index_holes(holes: list) -> list[Card]:
+    """Emit HoleCards from a list of hole_detector.Hole objects."""
+    cards: list[Card] = []
+    for h in holes:
+        import uuid
+        hole_id = f"hole_{h.spec}_{h.hole_type}_{uuid.uuid4().hex[:6]}"
+        cards.append(hole_card(
+            hole_id=hole_id,
+            hole_type=h.hole_type,
+            specs=[h.spec],
+            severity=h.severity,
+            evidence=h.evidence,
+        ))
+    return cards
+
+
+_BUILT_IN_STRATEGIES: list[dict] = [
+    {
+        "name": "mux2_formula",
+        "description": "Multiplexer decomposition: use AND/OR/NOT primitives, not a direct lookup.",
+        "formula": "mux2(s, a, b) = (s AND a) OR (NOT s AND b)",
+        "applicable_specs": ["mux2"],
+    },
+    {
+        "name": "majority3_formula",
+        "description": "Majority-of-3 via sum-of-products.",
+        "formula": "majority3(a, b, c) = (a AND b) OR (b AND c) OR (a AND c)",
+        "applicable_specs": ["majority3"],
+    },
+    {
+        "name": "parity3_formula",
+        "description": "3-input parity is XOR chain.",
+        "formula": "parity3(a, b, c) = a XOR b XOR c",
+        "applicable_specs": ["parity3", "parity4"],
+    },
+    {
+        "name": "full_adder_formula",
+        "description": "Full adder sum/carry from half-adder primitives or XOR/AND/OR.",
+        "formula": (
+            "full_adder_sum(a, b, cin) = a XOR b XOR cin  |  "
+            "full_adder_carry(a, b, cin) = (a AND b) OR (cin AND (a XOR b))"
+        ),
+        "applicable_specs": ["full_adder_sum", "full_adder_carry"],
+    },
+    {
+        "name": "xor_chain4_formula",
+        "description": "4-input XOR is left-associative XOR chain.",
+        "formula": "xor_chain4(a,b,c,d) = a XOR b XOR c XOR d",
+        "applicable_specs": ["xor_chain4"],
+    },
+]
+
+
+def index_strategies(extra: list[dict] | None = None) -> list[Card]:
+    """Emit StrategyCards for built-in formula hints plus any extras."""
+    cards: list[Card] = []
+    for s in _BUILT_IN_STRATEGIES + (extra or []):
+        cards.append(strategy_card(
+            name=s["name"],
+            description=s["description"],
+            formula=s.get("formula"),
+            applicable_specs=s.get("applicable_specs"),
         ))
     return cards
 
@@ -150,17 +216,22 @@ def run_indexer(
     registry: dict[str, dict] | None = None,
     *,
     include_failures: bool = False,
+    holes: list | None = None,
 ) -> list[Card]:
     """Run all indexers and return the combined card list.
 
     include_failures: whether to include FailureCards (requires run_dir).
                       Off by default to keep prompt context clean during a run.
+    holes: list of hole_detector.Hole objects to index as HoleCards.
     """
     cards: list[Card] = []
     cards.extend(index_proofs())
+    cards.extend(index_strategies())
     if include_failures and run_dir is not None:
         cards.extend(index_failures(run_dir))
     if registry is not None:
         cards.extend(index_macros(registry))
         cards.extend(index_properties(registry))
+    if holes:
+        cards.extend(index_holes(holes))
     return cards

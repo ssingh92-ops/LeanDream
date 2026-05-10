@@ -45,6 +45,81 @@ the wrong number of args to a macro.
 """
 
 
+_ROLE_LABELS: dict[str, str] = {
+    "and_macro":      "AND(a,b)",
+    "or_macro":       "OR(a,b)",
+    "xor_macro":      "XOR(a,b)",
+    "not_macro":      "NOT(a)",
+    "nand_macro":     "NAND(a,b)",
+    "nor_macro":      "NOR(a,b)",
+    "xnor_macro":     "XNOR(a,b)",
+    "majority3_macro":"majority(a,b,c)",
+    "carry_macro":    "full_adder_carry(a,b,cin)",
+    "xor3_macro":     "XOR3(a,b,c)",
+    "xor4_macro":     "XOR4(a,b,c,d)",
+}
+
+
+def render_semantic_role_map(roles: dict[str, str | None]) -> str:
+    """Build a SEMANTIC ROLE MAP block from detected macro roles.
+
+    Only includes non-None roles.  When AND and OR macros are both known,
+    appends the explicit majority3 formula using their actual macro names.
+    """
+    filled = [(role, macro) for role, macro in roles.items() if macro is not None]
+    if not filled:
+        return ""
+    lines = ["[SEMANTIC ROLE MAP — use these macro names for their boolean roles]"]
+    for role, macro in sorted(filled):
+        label = _ROLE_LABELS.get(role, role)
+        lines.append(f"  {label} → {macro}")
+    and_m = roles.get("and_macro")
+    or_m  = roles.get("or_macro")
+    if and_m and or_m:
+        formula_text = (
+            f"{or_m}({or_m}({and_m}(a,b), {and_m}(b,c)), {and_m}(a,c))"
+        )
+        formula_json = (
+            f'{{"kind":"mac","name":"{or_m}","args":['
+            f'{{"kind":"mac","name":"{or_m}","args":['
+            f'{{"kind":"mac","name":"{and_m}","args":[{{"kind":"var","index":0}},{{"kind":"var","index":1}}]}},'
+            f'{{"kind":"mac","name":"{and_m}","args":[{{"kind":"var","index":1}},{{"kind":"var","index":2}}]}}'
+            f']}},'
+            f'{{"kind":"mac","name":"{and_m}","args":[{{"kind":"var","index":0}},{{"kind":"var","index":2}}]}}'
+            f']}}'
+        )
+        lines.append("")
+        lines.append(f"  majority3 formula:  majority(a,b,c) = {formula_text}")
+        lines.append(f"  JSON: {formula_json}")
+    return "\n".join(lines)
+
+
+def _is_majority_or_carry_spec(spec: dict[str, Any]) -> bool:
+    """True if spec truth table matches majority or full-adder-carry pattern."""
+    tt = spec.get("truth_table", [])
+    n = spec.get("arity", 0)
+    if not tt or n not in (3, 4):
+        return False
+    if all(bool(r["output"]) == (sum(r["inputs"]) > n / 2) for r in tt):
+        return True
+    if n == 3 and all(
+        bool(r["output"]) == bool(
+            (r["inputs"][0] and r["inputs"][1])
+            or (r["inputs"][2] and (r["inputs"][0] != r["inputs"][1]))
+        )
+        for r in tt
+    ):
+        return True
+    return False
+
+
+def build_majority_role_pack(spec: dict[str, Any], roles: dict[str, str | None]) -> str:
+    """Return a role-map pack for majority/carry specs; empty string otherwise."""
+    if not _is_majority_or_carry_spec(spec):
+        return ""
+    return render_semantic_role_map(roles)
+
+
 def render_macros(installed: dict[str, dict[str, Any]]) -> str:
     if not installed:
         return "(no macros installed yet)"

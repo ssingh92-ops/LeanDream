@@ -24,6 +24,11 @@ leandream = "leandream.orchestrator:main"
 leandream-web = "leandream.web:main"
 leandream-bootstrap = "leandream.bootstrap:main"
 leandream-doctor = "leandream.doctor:main"
+leandream-curriculum = "leandream.curriculum:main"
+leandream-report = "leandream.reports:main"
+leandream-analyze = "leandream.analysis:main"
+leandream-audit = "leandream.audit:main"
+leandream-theorem-gen = "leandream.theorem_gen:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

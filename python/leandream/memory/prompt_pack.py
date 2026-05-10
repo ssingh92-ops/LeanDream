@@ -13,8 +13,10 @@ from __future__ import annotations
 from .cards import (
     TYPE_DSL_ACTION,
     TYPE_FAILURE,
+    TYPE_HOLE,
     TYPE_MACRO,
     TYPE_PROOF_TRACE,
+    TYPE_STRATEGY,
     TYPE_THEOREM_PROPERTY,
 )
 from .retriever import RetrievalResult
@@ -42,15 +44,30 @@ def _format_result(r: RetrievalResult) -> str:
     if c.card_type == TYPE_MACRO:
         props = p.get("properties") or []
         prop_str = f" [props: {', '.join(props)}]" if props else ""
+        schema = p.get("legal_call_schema", "")
+        schema_str = f" | call: {schema}" if schema else ""
+        tt = p.get("tt_key", "")
+        tt_str = f" tt:{tt}" if tt else ""
         return (
             f"MACRO: {p.get('name', '?')} "
-            f"(arity {p.get('arity', '?')}, support {p.get('support', '?')}) "
-            f"→ {p.get('body_repr', '?')}{prop_str}"
+            f"(arity {p.get('arity', '?')}, support {p.get('support', '?')}{tt_str}) "
+            f"→ {p.get('body_repr', '?')}{prop_str}{schema_str}"
         )
     if c.card_type == TYPE_THEOREM_PROPERTY:
-        return f"THEOREM: {p.get('macro_name', '?')}.{p.get('property_name', '?')}"
+        stmt = p.get("lean_statement", "")
+        stmt_str = f" — {stmt[:60]}" if stmt else ""
+        return f"THEOREM: {p.get('macro_name', '?')}.{p.get('property_name', '?')}{stmt_str}"
     if c.card_type == TYPE_DSL_ACTION:
         return f"DSL: {p.get('name', '?')} — {p.get('description', '')}"
+    if c.card_type == TYPE_STRATEGY:
+        formula = p.get("formula", "")
+        return f"STRATEGY: {p.get('name', '?')} — {formula}"
+    if c.card_type == TYPE_HOLE:
+        note = (p.get("evidence") or {}).get("note", "")
+        return (
+            f"HOLE: {p.get('hole_type', '?')} on {', '.join(p.get('specs') or ['?'])} "
+            f"[{p.get('status', 'unresolved')}]{f' — {note[:80]}' if note else ''}"
+        )
     return f"CARD({c.card_type}): {sorted(p)[:3]}"
 
 

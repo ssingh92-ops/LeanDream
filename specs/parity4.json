@@ -1,0 +1,25 @@
+{
+  "name": "parity4",
+  "description": "4-input parity (odd parity): output is 1 when an odd number of inputs are 1.",
+  "arity": 4,
+  "inputs": ["a", "b", "c", "d"],
+  "lean_spec": "Specs.parity4",
+  "truth_table": [
+    {"inputs": [false, false, false, false], "output": false},
+    {"inputs": [true,  false, false, false], "output": true },
+    {"inputs": [false, true,  false, false], "output": true },
+    {"inputs": [true,  true,  false, false], "output": false},
+    {"inputs": [false, false, true,  false], "output": true },
+    {"inputs": [true,  false, true,  false], "output": false},
+    {"inputs": [false, true,  true,  false], "output": false},
+    {"inputs": [true,  true,  true,  false], "output": true },
+    {"inputs": [false, false, false, true ], "output": true },
+    {"inputs": [true,  false, false, true ], "output": false},
+    {"inputs": [false, true,  false, true ], "output": false},
+    {"inputs": [true,  true,  false, true ], "output": true },
+    {"inputs": [false, false, true,  true ], "output": false},
+    {"inputs": [true,  false, true,  true ], "output": true },
+    {"inputs": [false, true,  true,  true ], "output": true },
+    {"inputs": [true,  true,  true,  true ], "output": false}
+  ]
+}

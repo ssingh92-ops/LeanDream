@@ -1,0 +1,17 @@
+{
+  "name": "majority3",
+  "description": "3-input majority vote. Output is 1 when at least 2 of the 3 inputs are 1.",
+  "arity": 3,
+  "inputs": ["a", "b", "c"],
+  "lean_spec": "Specs.majority3",
+  "truth_table": [
+    {"inputs": [false, false, false], "output": false},
+    {"inputs": [true,  false, false], "output": false},
+    {"inputs": [false, true,  false], "output": false},
+    {"inputs": [true,  true,  false], "output": true },
+    {"inputs": [false, false, true ], "output": false},
+    {"inputs": [true,  false, true ], "output": true },
+    {"inputs": [false, true,  true ], "output": true },
+    {"inputs": [true,  true,  true ], "output": true }
+  ]
+}

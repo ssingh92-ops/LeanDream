@@ -10,22 +10,80 @@
   <header>
     <h1>LeanDream</h1>
     <div class="tagline">Neuro-symbolic DSL generation with Lean verification</div>
+    <div class="header-run-bar">
+      <label class="run-label">Run:
+        <select id="global-run-select"><option value="">latest</option></select>
+      </label>
+      <span id="current-run-label" class="run-id-label"></span>
+      <button id="refresh-btn" class="refresh-btn" title="Reload current tab from disk">↺ Refresh</button>
+    </div>
     <div id="stats" class="stats"></div>
   </header>
 
   <nav class="tabs">
-    <button data-tab="specs" class="active">Specs</button>
+    <button data-tab="home" class="active">Home</button>
+    <button data-tab="curriculum">Curriculum</button>
+    <button data-tab="specs">Specs</button>
     <button data-tab="macros">Macros</button>
-    <button data-tab="proofs">Proof Forest</button>
+    <button data-tab="forest">Proof Forest</button>
+    <button data-tab="holes">Holes</button>
     <button data-tab="prompts">Prompts</button>
     <button data-tab="timeline">Timeline</button>
     <button data-tab="bandit">Bandit</button>
     <button data-tab="rag">RAG</button>
+    <button data-tab="metrics">Metrics</button>
+    <button data-tab="lean">Lean</button>
     <button data-tab="dsl">DSL Source</button>
   </nav>
 
   <main>
-    <section id="tab-specs" class="tab active">
+
+    <!-- HOME: Story view -->
+    <section id="tab-home" class="tab active">
+      <div class="home-layout">
+        <div class="home-story">
+          <h2>How LeanDream Works</h2>
+          <div class="pipeline-diagram">
+            <div class="pipe-step pipe-llm">LLM proposes JSON</div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-step pipe-preflight">Preflight validates</div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-step pipe-lean">Lean verifies</div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-step pipe-forest">Proof forest stores</div>
+            <div class="pipe-break"></div>
+            <div class="pipe-step pipe-mine">Miner finds patterns</div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-step pipe-install">Installer extends DSL</div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-step pipe-rag">RAG retrieves memory</div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-step pipe-bandit">Bandit selects context</div>
+          </div>
+          <p class="home-desc">
+            <strong>Lean is the only trusted component.</strong> A circuit is "verified" only when
+            <code>lake build</code> succeeds. The LLM proposes JSON — it never touches proofs.
+            Every failure is logged, clustered, and becomes a HoleCard or FailureCard for future retrieval.
+          </p>
+        </div>
+        <div class="home-stats-panel">
+          <h2>Live State</h2>
+          <div id="home-stats-grid" class="home-stats-grid"></div>
+          <h2 style="margin-top:1.5rem">Analysis</h2>
+          <div id="home-analysis"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CURRICULUM -->
+    <section id="tab-curriculum" class="tab">
+      <h2>Curriculum Stages</h2>
+      <p class="home-desc">Stages run in order; each has a gate. If a gate fails, the curriculum stops.</p>
+      <div id="curriculum-stages"></div>
+    </section>
+
+    <!-- SPECS -->
+    <section id="tab-specs" class="tab">
       <div class="split">
         <aside id="specs-list" class="list"></aside>
         <article id="specs-detail" class="detail">
@@ -34,26 +92,42 @@
       </div>
     </section>
 
+    <!-- MACROS -->
     <section id="tab-macros" class="tab">
       <div id="macros-table"></div>
     </section>
 
-    <section id="tab-proofs" class="tab">
-      <div class="split">
-        <aside class="list">
-          <label>Filter by spec
-            <select id="proof-filter">
-              <option value="">all</option>
-            </select>
-          </label>
-          <div id="proofs-list"></div>
-        </aside>
-        <article id="proofs-detail" class="detail">
-          <p class="empty">Select a proof on the left.</p>
-        </article>
+    <!-- PROOF FOREST GRAPH -->
+    <section id="tab-forest" class="tab">
+      <div class="forest-toolbar">
+        <span class="legend-item"><span class="dot" style="background:#f59e0b"></span>Spec</span>
+        <span class="legend-item"><span class="dot" style="background:#22c55e"></span>Proof</span>
+        <span class="legend-item"><span class="dot" style="background:#f85149"></span>Failure</span>
+        <span class="legend-item"><span class="dot" style="background:#a855f7"></span>Macro</span>
+        <span class="legend-item"><span class="dot" style="background:#facc15"></span>Hole</span>
+        <span style="margin-left:auto;font-size:0.8rem;color:#888">Click a node to inspect</span>
+      </div>
+      <div class="forest-split">
+        <div id="forest-canvas-wrap">
+          <canvas id="forest-canvas" width="700" height="500"></canvas>
+        </div>
+        <div id="forest-detail" class="forest-detail">
+          <p class="empty">Click a node to inspect it.</p>
+        </div>
       </div>
     </section>
 
+    <!-- HOLES / FAILURES -->
+    <section id="tab-holes" class="tab">
+      <h2>Holes &amp; Failures</h2>
+      <p class="home-desc">
+        A <em>hole</em> is a spec the system is structurally unable to solve.
+        Holes become HoleCards — the RAG retrieves them so future prompts avoid repeating the same mistake.
+      </p>
+      <div id="holes-list"></div>
+    </section>
+
+    <!-- PROMPTS -->
     <section id="tab-prompts" class="tab">
       <div class="split">
         <aside class="list">
@@ -75,6 +149,7 @@
       </div>
     </section>
 
+    <!-- TIMELINE -->
     <section id="tab-timeline" class="tab">
       <div class="toolbar">
         <label>Run
@@ -90,6 +165,7 @@
       <div id="timeline-table"></div>
     </section>
 
+    <!-- BANDIT -->
     <section id="tab-bandit" class="tab">
       <div class="bandit-panels">
         <div>
@@ -103,6 +179,7 @@
       </div>
     </section>
 
+    <!-- RAG -->
     <section id="tab-rag" class="tab">
       <div class="toolbar">
         <label>Type
@@ -112,10 +189,32 @@
       <div id="rag-cards"></div>
     </section>
 
+    <!-- METRICS -->
+    <section id="tab-metrics" class="tab">
+      <h2>Run Metrics</h2>
+      <div id="metrics-summary" class="home-stats-grid"></div>
+      <h3 style="margin-top:1.5rem">Iteration Progress</h3>
+      <div id="metrics-chart"></div>
+    </section>
+
+    <!-- LEAN PROOF ENGINEERING -->
+    <section id="tab-lean" class="tab">
+      <h2>Lean Proof Engineering</h2>
+      <p class="home-desc">
+        Lean is the semantic authority. A circuit is verified only when <code>lake build</code> succeeds.
+        This panel shows proof routes, theorem growth, and whether macros have Lean-checked properties.
+      </p>
+      <div id="lean-proof-modes"></div>
+      <div id="lean-macro-theorems" style="margin-top:1.5rem"></div>
+      <div id="lean-theorem-gen" style="margin-top:1.5rem"></div>
+    </section>
+
+    <!-- DSL SOURCE -->
     <section id="tab-dsl" class="tab">
       <h2>Macros.lean (live)</h2>
       <pre id="dsl-source"></pre>
     </section>
+
   </main>
 
   <script src="/static/app.js"></script>

@@ -16,4 +16,15 @@ theorem macro_2_comm : ∀ a b : Bool, (Macros.macro_2 (.const a) (.const b)).ev
 theorem macro_2_assoc : ∀ a b c : Bool, (Macros.macro_2 (Macros.macro_2 (.const a) (.const b)) (.const c)).eval (fun _ => false) = (Macros.macro_2 (.const a) (Macros.macro_2 (.const b) (.const c))).eval (fun _ => false) := by circuit_decide
 theorem macro_2_id_left_false : ∀ a : Bool, (Macros.macro_2 (.const false) (.const a)).eval (fun _ => false) = a := by circuit_decide
 theorem macro_2_id_right_false : ∀ a : Bool, (Macros.macro_2 (.const a) (.const false)).eval (fun _ => false) = a := by circuit_decide
+theorem macro_3_comm : ∀ a b : Bool, (Macros.macro_3 (.const a) (.const b)).eval (fun _ => false) = (Macros.macro_3 (.const b) (.const a)).eval (fun _ => false) := by circuit_decide
+theorem macro_3_idem : ∀ a : Bool, (Macros.macro_3 (.const a) (.const a)).eval (fun _ => false) = a := by circuit_decide
+theorem macro_3_assoc : ∀ a b c : Bool, (Macros.macro_3 (Macros.macro_3 (.const a) (.const b)) (.const c)).eval (fun _ => false) = (Macros.macro_3 (.const a) (Macros.macro_3 (.const b) (.const c))).eval (fun _ => false) := by circuit_decide
+theorem macro_3_id_left_false : ∀ a : Bool, (Macros.macro_3 (.const false) (.const a)).eval (fun _ => false) = a := by circuit_decide
+theorem macro_3_ann_left_true : ∀ a : Bool, (Macros.macro_3 (.const true) (.const a)).eval (fun _ => false) = true := by circuit_decide
+theorem macro_3_id_right_false : ∀ a : Bool, (Macros.macro_3 (.const a) (.const false)).eval (fun _ => false) = a := by circuit_decide
+theorem macro_3_ann_right_true : ∀ a : Bool, (Macros.macro_3 (.const a) (.const true)).eval (fun _ => false) = true := by circuit_decide
+theorem macro_7_id_left_false : ∀ a : Bool, (Macros.macro_7 (.const false) (.const a)).eval (fun _ => false) = a := by circuit_decide
+theorem macro_7_ann_right_false : ∀ a : Bool, (Macros.macro_7 (.const a) (.const false)).eval (fun _ => false) = false := by circuit_decide
+theorem macro_10_inv : ∀ a : Bool, (Macros.macro_10 (Macros.macro_10 (.const a))).eval (fun _ => false) = a := by circuit_decide
+theorem macro_10_const : ∀ a : Bool, (Macros.macro_10 (.const a)).eval (fun _ => false) = a := by circuit_decide
 end LeanDream.Properties

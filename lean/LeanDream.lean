@@ -7,3 +7,4 @@ import LeanDream.Macros
 import LeanDream.Candidate
 import LeanDream.Verify
 import LeanDream.Properties
+import LeanDream.EmitTheoremCards
