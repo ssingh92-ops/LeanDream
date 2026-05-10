@@ -1,0 +1,2 @@
+run_id,iteration,stage,verified,attempted,verify_rate,repair_success,new_macros,new_theorems,rag_card_count,bandit_entropy,avg_llm_ms,avg_lean_ms
+20260510T203009_c3761328,0,,4,4,1.0000,0,1,0,11,-0.2808040171475379,14111.544395796955,465.77607293147594

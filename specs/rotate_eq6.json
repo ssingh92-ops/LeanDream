@@ -1,0 +1,6 @@
+{
+  "name": "rotate_eq6",
+  "description": "First half (inputs 0-2) rotated left by 1 equals second half (inputs 3-5). i.e. (a1,a2,a0) == (b0,b1,b2).",
+  "arity": 6,
+  "formula": "leandream.spec_formulas:rotate_eq"
+}

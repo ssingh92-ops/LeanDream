@@ -100,16 +100,32 @@ def reset_state() -> None:
 
 
 def load_specs(names: list[str]) -> list[dict[str, Any]]:
+    """Load specs from disk. JSON files with a `formula` field are inflated
+    via spec_formulas: the truth-table and `lean_spec` are filled in at load
+    time, and the GENERATED section of Specs.lean is rewritten so the verifier
+    has matching reference circuits."""
+    from . import specs_gen
+
     if names == ["all"]:
         files = sorted(SPECS_DIR.glob("*.json"))
     else:
         files = [SPECS_DIR / f"{n}.json" for n in names]
+
     out = []
+    any_formula = False
     for p in files:
         if not p.exists():
             print(f"warning: spec file not found: {p}", file=sys.stderr)
             continue
-        out.append(json.loads(p.read_text()))
+        spec = json.loads(p.read_text())
+        if spec.get("formula"):
+            any_formula = True
+            spec = specs_gen.expand_spec(spec)
+        out.append(spec)
+
+    if any_formula:
+        specs_gen.regenerate()
+
     return out
 
 

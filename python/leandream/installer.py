@@ -175,6 +175,18 @@ def install(candidates: list[MacroCandidate], *, verbose: bool = True) -> dict[s
             existing_by_tt[(cand.arity, tt)] = name
             body_circuits[name] = cand.ast
             accepted += 1
+            # Reconcile the bandit posterior for this name slot. If a previous
+            # run installed a *different* circuit under the same name, the arm
+            # gets reset; if the same circuit was previously seen under another
+            # name, we carry over its posterior.
+            try:
+                from .learning.contextual_bandit import ContextualBandit
+                bandit = ContextualBandit.load()
+                bandit.bind_macro_arm(name, tt, verbose=verbose)
+                bandit.save()
+            except Exception as e:
+                if verbose:
+                    print(f"  [bandit] bind skipped for {name}: {e!r}")
             if verbose:
                 arity_str = f"({cand.arity})" if cand.arity else "()"
                 print(

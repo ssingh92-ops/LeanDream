@@ -1,0 +1,6 @@
+{
+  "name": "majority7",
+  "description": "Strict majority of 7 inputs. Output 1 iff at least 4 of the 7 inputs are 1.",
+  "arity": 7,
+  "formula": "leandream.spec_formulas:majority"
+}

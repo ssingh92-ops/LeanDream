@@ -1,0 +1,134 @@
+[
+  {
+    "macro": "macro_1",
+    "property": "comm",
+    "status": "failed",
+    "lean_name": "macro_1_comm"
+  },
+  {
+    "macro": "macro_1",
+    "property": "comm_cases",
+    "status": "proved",
+    "lean_name": "macro_1_comm"
+  },
+  {
+    "macro": "macro_1",
+    "property": "idem",
+    "status": "proved",
+    "lean_name": "macro_1_idem"
+  },
+  {
+    "macro": "macro_1",
+    "property": "ann_false_left",
+    "status": "proved",
+    "lean_name": "macro_1_ann_false_left"
+  },
+  {
+    "macro": "macro_1",
+    "property": "ann_true_left",
+    "status": "failed",
+    "lean_name": "macro_1_ann_true_left"
+  },
+  {
+    "macro": "macro_1",
+    "property": "ann_false_right",
+    "status": "proved",
+    "lean_name": "macro_1_ann_false_right"
+  },
+  {
+    "macro": "macro_1",
+    "property": "ann_true_right",
+    "status": "failed",
+    "lean_name": "macro_1_ann_true_right"
+  },
+  {
+    "macro": "macro_1",
+    "property": "id_false_left",
+    "status": "failed",
+    "lean_name": "macro_1_id_false_left"
+  },
+  {
+    "macro": "macro_1",
+    "property": "id_true_left",
+    "status": "proved",
+    "lean_name": "macro_1_id_true_left"
+  },
+  {
+    "macro": "macro_1",
+    "property": "id_false_right",
+    "status": "failed",
+    "lean_name": "macro_1_id_false_right"
+  },
+  {
+    "macro": "macro_1",
+    "property": "id_true_right",
+    "status": "proved",
+    "lean_name": "macro_1_id_true_right"
+  },
+  {
+    "macro": "macro_2",
+    "property": "comm",
+    "status": "failed",
+    "lean_name": "macro_2_comm"
+  },
+  {
+    "macro": "macro_2",
+    "property": "comm_cases",
+    "status": "proved",
+    "lean_name": "macro_2_comm"
+  },
+  {
+    "macro": "macro_2",
+    "property": "idem",
+    "status": "failed",
+    "lean_name": "macro_2_idem"
+  },
+  {
+    "macro": "macro_2",
+    "property": "ann_false_left",
+    "status": "failed",
+    "lean_name": "macro_2_ann_false_left"
+  },
+  {
+    "macro": "macro_2",
+    "property": "ann_true_left",
+    "status": "failed",
+    "lean_name": "macro_2_ann_true_left"
+  },
+  {
+    "macro": "macro_2",
+    "property": "ann_false_right",
+    "status": "failed",
+    "lean_name": "macro_2_ann_false_right"
+  },
+  {
+    "macro": "macro_2",
+    "property": "ann_true_right",
+    "status": "failed",
+    "lean_name": "macro_2_ann_true_right"
+  },
+  {
+    "macro": "macro_2",
+    "property": "id_false_left",
+    "status": "proved",
+    "lean_name": "macro_2_id_false_left"
+  },
+  {
+    "macro": "macro_2",
+    "property": "id_true_left",
+    "status": "failed",
+    "lean_name": "macro_2_id_true_left"
+  },
+  {
+    "macro": "macro_2",
+    "property": "id_false_right",
+    "status": "proved",
+    "lean_name": "macro_2_id_false_right"
+  },
+  {
+    "macro": "macro_2",
+    "property": "id_true_right",
+    "status": "failed",
+    "lean_name": "macro_2_id_true_right"
+  }
+]

@@ -22,6 +22,7 @@
 
   <nav class="tabs">
     <button data-tab="home" class="active">Home</button>
+    <button data-tab="run">Run</button>
     <button data-tab="curriculum">Curriculum</button>
     <button data-tab="specs">Specs</button>
     <button data-tab="macros">Macros</button>
@@ -73,6 +74,28 @@
           <div id="home-analysis"></div>
         </div>
       </div>
+    </section>
+
+    <!-- RUN SUMMARY -->
+    <section id="tab-run" class="tab">
+      <h2>Run Summary</h2>
+      <p class="home-desc">
+        Per-run breakdown of <em>this</em> run only — independent of the curriculum
+        accumulation. Use the run selector in the header to switch.
+      </p>
+      <div id="run-header" class="home-stats-grid" style="margin-top:1rem"></div>
+      <div class="run-tables">
+        <div>
+          <h3 class="section-label">Per-iteration</h3>
+          <div id="run-iter-table"></div>
+        </div>
+        <div>
+          <h3 class="section-label">Per-spec</h3>
+          <div id="run-spec-table"></div>
+        </div>
+      </div>
+      <h3 class="section-label" style="margin-top:1.5rem">Failure modes</h3>
+      <div id="run-failures"></div>
     </section>
 
     <!-- CURRICULUM -->

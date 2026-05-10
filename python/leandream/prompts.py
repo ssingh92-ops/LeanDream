@@ -182,14 +182,94 @@ def render_macros(installed: dict[str, dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+# Truth tables are rendered in full up to this many rows. For larger arities
+# only a representative sample is shown — the LLM should rely on `description`.
+_TT_FULL_ROWS = 16
+
+
 def render_truth_table(spec: dict[str, Any]) -> str:
     inputs = spec["inputs"]
-    rows = ["| " + " | ".join(inputs) + " | output |", "|" + "---|" * (len(inputs) + 1)]
-    for row in spec["truth_table"]:
+    arity = spec.get("arity", len(inputs))
+    table = spec["truth_table"]
+    header = ["| " + " | ".join(inputs) + " | output |",
+              "|" + "---|" * (len(inputs) + 1)]
+    if len(table) <= _TT_FULL_ROWS:
+        rows = list(table)
+        truncated = False
+    else:
+        # Sample first half + last half so all-zeros and all-ones rows appear.
+        keep = _TT_FULL_ROWS // 2
+        rows = table[:keep] + table[-keep:]
+        truncated = True
+    body = []
+    for row in rows:
         cells = ["1" if v else "0" for v in row["inputs"]]
         out = "1" if row["output"] else "0"
-        rows.append("| " + " | ".join(cells) + f" | {out} |")
-    return "\n".join(rows)
+        body.append("| " + " | ".join(cells) + f" | {out} |")
+    out_lines = header + body
+    if truncated:
+        out_lines.append(
+            f"  (truncated — table has 2^{arity} = {len(table)} rows; "
+            f"rely on the spec description for the full function)"
+        )
+    return "\n".join(out_lines)
+
+
+def _compose_first_section(
+    spec: dict[str, Any],
+    installed_macros: dict[str, dict[str, Any]],
+) -> str:
+    """Add an aggressive macro-composition nudge for high-arity specs.
+
+    Active when arity ≥ 4 AND there are ≥ 3 installed macros — below those
+    bars the LLM doesn't have either the need (small specs) or the vocabulary
+    (empty registry) for composition to be the obvious win.
+    """
+    arity = spec.get("arity", 0)
+    # Fire on any non-trivial arity once even one macro exists. Earlier nudges
+    # mean more `mac` references appear in raw circuits, which feed the
+    # composition miner.
+    if arity < 3 or len(installed_macros) < 1:
+        return ""
+
+    # Approximate node count for a primitive-only solution: roughly arity-1
+    # binary operators for an XOR/OR/AND tree, more for majority-style specs.
+    primitive_estimate = max(1, 4 * (arity - 1))
+
+    candidates: list[tuple[str, dict[str, Any]]] = []
+    for name, info in installed_macros.items():
+        if info.get("alias_of"):
+            continue
+        if info.get("arity", 0) <= 1:
+            continue
+        candidates.append((name, info))
+    # Sort by support desc so the most-used macros lead.
+    candidates.sort(key=lambda kv: kv[1].get("support", 0), reverse=True)
+
+    if not candidates:
+        return ""
+
+    lines = [
+        "",
+        "Composition guidance:",
+        f"  This spec has arity {arity}. A primitive-only solution would take "
+        f"~{primitive_estimate} AST nodes. Composing installed macros is "
+        f"strongly preferred — verified circuits that reference macros earn "
+        f"higher reward and contribute to deeper macro discovery.",
+        "  Top candidates by support (the bandit ranks these first):",
+    ]
+    for name, info in candidates[:6]:
+        body = info.get("body_repr", "?")
+        macro_arity = info.get("arity", "?")
+        props = info.get("properties", []) or []
+        prop_str = f"  [{', '.join(props)}]" if props else ""
+        lines.append(f"    - {name}/{macro_arity}: {body}{prop_str}")
+    lines.append(
+        "  Reach for these when the spec exposes a sub-pattern they compute. "
+        "Two parity-of-4 macros XOR'd together is a parity-of-8 — you do not "
+        "need to write 7 nested xor nodes."
+    )
+    return "\n".join(lines) + "\n"
 
 
 def build_user_prompt(
@@ -198,6 +278,7 @@ def build_user_prompt(
     memory_pack: str = "",
 ) -> str:
     memory_section = f"\n{memory_pack}\n" if memory_pack else ""
+    compose_section = _compose_first_section(spec, installed_macros)
     return f"""\
 Spec: {spec['name']}
 {spec.get('description', '').strip()}
@@ -206,7 +287,8 @@ Arity: {spec['arity']}
 Inputs: {', '.join(spec['inputs'])} (index 0 = {spec['inputs'][0]}, etc.)
 
 Truth table:
-{render_truth_table(spec)}{memory_section}
+{render_truth_table(spec)}
+{compose_section}{memory_section}\
 Installed macros you may reference via {{"kind": "mac", "name": ...}}:
 {render_macros(installed_macros)}
 

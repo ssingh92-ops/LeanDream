@@ -1,0 +1,6 @@
+{
+  "name": "majority5",
+  "description": "Strict majority of 5 inputs. Output 1 iff at least 3 of the 5 inputs are 1.",
+  "arity": 5,
+  "formula": "leandream.spec_formulas:majority"
+}

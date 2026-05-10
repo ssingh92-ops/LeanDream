@@ -1,0 +1,6 @@
+{
+  "name": "nand4",
+  "description": "4-input NAND. Output 0 iff every input is 1.",
+  "arity": 4,
+  "formula": "leandream.spec_formulas:nand_chain"
+}

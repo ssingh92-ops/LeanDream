@@ -1,0 +1,6 @@
+{
+  "name": "palindrome6",
+  "description": "Output 1 iff the 6 inputs are a palindrome (input 0 = input 5, input 1 = input 4, input 2 = input 3).",
+  "arity": 6,
+  "formula": "leandream.spec_formulas:is_palindrome"
+}

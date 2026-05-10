@@ -1,0 +1,6 @@
+{
+  "name": "parity8",
+  "description": "Odd parity over 8 inputs. Output 1 iff an odd number of inputs are 1.",
+  "arity": 8,
+  "formula": "leandream.spec_formulas:parity"
+}

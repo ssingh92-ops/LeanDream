@@ -1,0 +1,20 @@
+{
+  "run_id": "20260510T203113_e3347411",
+  "iterations": 1,
+  "total_verified": 3,
+  "total_attempted": 3,
+  "total_repair_success": 0,
+  "macro_count": 5,
+  "theorem_count": 0,
+  "rag_card_count": 11,
+  "avg_verify_rate": 1.0,
+  "peak_verify_rate": 1.0,
+  "stage_reached": null,
+  "holes_detected": 0,
+  "should_continue_to_next_stage": true,
+  "blocking_reasons": [],
+  "unresolved_holes": [],
+  "top_failure_modes": [],
+  "recommended_next_action": "proceed_to_next_stage",
+  "overall_verify_rate": 1.0
+}

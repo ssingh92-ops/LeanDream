@@ -41,6 +41,13 @@ _IL_PENALTY = 0.20 # failed  + prefer_info_preserving + information_losing
 class BetaArm:
     alpha: float = 1.0  # prior successes  (uniform prior starts at 1)
     beta: float = 1.0   # prior failures
+    # For macro arms: the truth-table key of the circuit this posterior was
+    # learned against. When a macro slot (e.g. "macro_8") gets repurposed in a
+    # later run for a different circuit, the installer detects the tt_key
+    # mismatch and resets the arm to avoid contaminating the new circuit's
+    # posterior with stale rewards. None means "untagged" — typically an arm
+    # that pre-dates this field; treated as stale on next bind.
+    tt_key: str | None = None
 
     def sample(self) -> float:
         """Draw one Thompson sample."""
@@ -94,6 +101,65 @@ class ContextualBandit:
         else:
             arm.beta += 1.0 + abs(reward)
 
+    def bind_macro_arm(
+        self, macro_name: str, tt_key: str, *, verbose: bool = False
+    ) -> str:
+        """Bind a macro slot to a specific circuit (identified by `tt_key`).
+
+        Resolves three situations at install time:
+          - Existing arm matches `tt_key`            → keep posterior.
+          - Existing arm tagged with a *different*   → stale (different circuit
+            tt_key, or untagged (legacy)               under same name); reset.
+          - Another arm under a different name has   → carry that posterior
+            the same `tt_key`                          over (cross-run learning
+                                                       for the same function).
+          - Otherwise                                → fresh prior.
+
+        Returns one of: "kept", "reset_stale", "reset_legacy", "carry_over",
+        "fresh".
+        """
+        key = f"macro:{macro_name}"
+        existing = self._arms.get(key)
+        if existing is not None:
+            if existing.tt_key == tt_key:
+                return "kept"
+            outcome = "reset_legacy" if existing.tt_key is None else "reset_stale"
+        else:
+            outcome = "fresh"
+
+        # Look for an orphan arm with the same tt_key under a different name —
+        # the same Boolean function may have been mined under a different slot
+        # in a prior run.
+        carry_over: BetaArm | None = None
+        for k, arm in self._arms.items():
+            if k == key:
+                continue
+            if k.startswith("macro:") and arm.tt_key == tt_key:
+                carry_over = arm
+                break
+
+        if carry_over is not None:
+            self._arms[key] = BetaArm(
+                alpha=carry_over.alpha,
+                beta=carry_over.beta,
+                tt_key=tt_key,
+            )
+            if verbose:
+                print(
+                    f"  [bandit] {macro_name}: carried over posterior for tt={tt_key} "
+                    f"(α={carry_over.alpha:.1f}, β={carry_over.beta:.1f})"
+                )
+            return "carry_over"
+
+        self._arms[key] = BetaArm(alpha=1.0, beta=1.0, tt_key=tt_key)
+        if verbose and outcome != "fresh":
+            print(
+                f"  [bandit] {macro_name}: reset stale arm "
+                f"({'tagged' if outcome == 'reset_stale' else 'untagged'} prior, "
+                f"new tt={tt_key})"
+            )
+        return outcome
+
     def summary(self) -> dict[str, dict]:
         """Return a JSON-friendly summary of all arm posteriors."""
         return {
@@ -105,7 +171,12 @@ class ContextualBandit:
     def save(self, path: Path | None = None) -> None:
         target = path or BANDIT_PATH
         target.parent.mkdir(parents=True, exist_ok=True)
-        data = {k: {"alpha": a.alpha, "beta": a.beta} for k, a in self._arms.items()}
+        data: dict[str, dict] = {}
+        for k, a in self._arms.items():
+            entry: dict = {"alpha": a.alpha, "beta": a.beta}
+            if a.tt_key is not None:
+                entry["tt_key"] = a.tt_key
+            data[k] = entry
         target.write_text(json.dumps(data, indent=2))
 
     @classmethod
@@ -118,6 +189,7 @@ class ContextualBandit:
                     bandit._arms[k] = BetaArm(
                         alpha=float(v["alpha"]),
                         beta=float(v["beta"]),
+                        tt_key=v.get("tt_key"),
                     )
             except Exception:
                 pass

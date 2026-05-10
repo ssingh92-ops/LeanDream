@@ -1,0 +1,6 @@
+{
+  "name": "parity6",
+  "description": "Odd parity over 6 inputs. Output 1 iff an odd number of inputs are 1.",
+  "arity": 6,
+  "formula": "leandream.spec_formulas:parity"
+}

@@ -11,7 +11,7 @@ Usage:
 from __future__ import annotations
 
 from .cards import Card, theorem_property_card
-from .card_store import append_many, load_all
+from .card_store import append_many, load_all, rebuild
 
 
 # ---------------------------------------------------------------------------
@@ -88,6 +88,24 @@ def export_theorem_cards(registry: dict[str, dict]) -> list[Card]:
     return cards
 
 
+def _backfill_trust_level(existing: list[Card], *, verbose: bool) -> int:
+    """Stamp `trust_level: lean_verified` onto any theorem_property cards
+    written before that field existed. Returns the number upgraded."""
+    upgraded = 0
+    for c in existing:
+        if c.card_type != "theorem_property":
+            continue
+        if c.payload.get("trust_level"):
+            continue
+        c.payload["trust_level"] = "lean_verified"
+        upgraded += 1
+    if upgraded:
+        rebuild(existing)
+        if verbose:
+            print(f"  [theorem-card] backfilled trust_level on {upgraded} existing card(s)")
+    return upgraded
+
+
 def run_exporter(registry: dict[str, dict], *, verbose: bool = False) -> int:
     """Append new theorem cards to the card store; return the count added.
 
@@ -95,6 +113,7 @@ def run_exporter(registry: dict[str, dict], *, verbose: bool = False) -> int:
     not re-added even if the macro was re-proved in a later run.
     """
     existing = load_all()
+    _backfill_trust_level(existing, verbose=verbose)
     existing_keys: set[tuple[str, str]] = {
         (c.payload.get("macro_name", ""), c.payload.get("property_name", ""))
         for c in existing

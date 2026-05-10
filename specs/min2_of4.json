@@ -1,0 +1,6 @@
+{
+  "name": "min2_of4",
+  "description": "Threshold-2 over 4 inputs. Output 1 iff at least two of the four inputs are 1.",
+  "arity": 4,
+  "formula": "leandream.spec_formulas:at_least_two"
+}

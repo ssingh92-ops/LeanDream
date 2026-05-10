@@ -1,0 +1,6 @@
+{
+  "name": "one_hot4",
+  "description": "Output 1 iff exactly one of the four inputs is 1.",
+  "arity": 4,
+  "formula": "leandream.spec_formulas:is_one_hot"
+}

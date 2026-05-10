@@ -1,0 +1,6 @@
+{
+  "name": "lt4",
+  "description": "Unsigned 2-bit less-than. Inputs 0-1 are A (msb first), inputs 2-3 are B. Output 1 iff A < B.",
+  "arity": 4,
+  "formula": "leandream.spec_formulas:lt"
+}

@@ -80,4 +80,55 @@ def majority4 : Circuit :=
       (.or (.and (.var 0) (.and (.var 2) (.var 3)))
            (.and (.var 1) (.and (.var 2) (.var 3))))
 
+-- Formula-generated specs are appended below by leandream.specs_gen.regenerate.
+-- BEGIN GENERATED
+-- gt4: arity 4, generated from formula 'leandream.spec_formulas:gt'
+def gt4_arity : Nat := 4
+def gt4 : Circuit := (.or (.and (.var 0) (.not (.var 2))) (.and (.not (.xor (.var 0) (.var 2))) (.or (.and (.var 1) (.not (.var 3))) (.and (.not (.xor (.var 1) (.var 3))) (.const false)))))
+
+-- lt4: arity 4, generated from formula 'leandream.spec_formulas:lt'
+def lt4_arity : Nat := 4
+def lt4 : Circuit := (.or (.and (.not (.var 0)) (.var 2)) (.and (.not (.xor (.var 0) (.var 2))) (.or (.and (.not (.var 1)) (.var 3)) (.and (.not (.xor (.var 1) (.var 3))) (.const false)))))
+
+-- majority5: arity 5, generated from formula 'leandream.spec_formulas:majority'
+def majority5_arity : Nat := 5
+def majority5 : Circuit := (.or (.or (.or (.or (.or (.or (.or (.or (.or (.and (.and (.var 0) (.var 1)) (.var 2)) (.and (.and (.var 0) (.var 1)) (.var 3))) (.and (.and (.var 0) (.var 1)) (.var 4))) (.and (.and (.var 0) (.var 2)) (.var 3))) (.and (.and (.var 0) (.var 2)) (.var 4))) (.and (.and (.var 0) (.var 3)) (.var 4))) (.and (.and (.var 1) (.var 2)) (.var 3))) (.and (.and (.var 1) (.var 2)) (.var 4))) (.and (.and (.var 1) (.var 3)) (.var 4))) (.and (.and (.var 2) (.var 3)) (.var 4)))
+
+-- majority7: arity 7, generated from formula 'leandream.spec_formulas:majority'
+def majority7_arity : Nat := 7
+def majority7 : Circuit := (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.or (.and (.and (.and (.var 0) (.var 1)) (.var 2)) (.var 3)) (.and (.and (.and (.var 0) (.var 1)) (.var 2)) (.var 4))) (.and (.and (.and (.var 0) (.var 1)) (.var 2)) (.var 5))) (.and (.and (.and (.var 0) (.var 1)) (.var 2)) (.var 6))) (.and (.and (.and (.var 0) (.var 1)) (.var 3)) (.var 4))) (.and (.and (.and (.var 0) (.var 1)) (.var 3)) (.var 5))) (.and (.and (.and (.var 0) (.var 1)) (.var 3)) (.var 6))) (.and (.and (.and (.var 0) (.var 1)) (.var 4)) (.var 5))) (.and (.and (.and (.var 0) (.var 1)) (.var 4)) (.var 6))) (.and (.and (.and (.var 0) (.var 1)) (.var 5)) (.var 6))) (.and (.and (.and (.var 0) (.var 2)) (.var 3)) (.var 4))) (.and (.and (.and (.var 0) (.var 2)) (.var 3)) (.var 5))) (.and (.and (.and (.var 0) (.var 2)) (.var 3)) (.var 6))) (.and (.and (.and (.var 0) (.var 2)) (.var 4)) (.var 5))) (.and (.and (.and (.var 0) (.var 2)) (.var 4)) (.var 6))) (.and (.and (.and (.var 0) (.var 2)) (.var 5)) (.var 6))) (.and (.and (.and (.var 0) (.var 3)) (.var 4)) (.var 5))) (.and (.and (.and (.var 0) (.var 3)) (.var 4)) (.var 6))) (.and (.and (.and (.var 0) (.var 3)) (.var 5)) (.var 6))) (.and (.and (.and (.var 0) (.var 4)) (.var 5)) (.var 6))) (.and (.and (.and (.var 1) (.var 2)) (.var 3)) (.var 4))) (.and (.and (.and (.var 1) (.var 2)) (.var 3)) (.var 5))) (.and (.and (.and (.var 1) (.var 2)) (.var 3)) (.var 6))) (.and (.and (.and (.var 1) (.var 2)) (.var 4)) (.var 5))) (.and (.and (.and (.var 1) (.var 2)) (.var 4)) (.var 6))) (.and (.and (.and (.var 1) (.var 2)) (.var 5)) (.var 6))) (.and (.and (.and (.var 1) (.var 3)) (.var 4)) (.var 5))) (.and (.and (.and (.var 1) (.var 3)) (.var 4)) (.var 6))) (.and (.and (.and (.var 1) (.var 3)) (.var 5)) (.var 6))) (.and (.and (.and (.var 1) (.var 4)) (.var 5)) (.var 6))) (.and (.and (.and (.var 2) (.var 3)) (.var 4)) (.var 5))) (.and (.and (.and (.var 2) (.var 3)) (.var 4)) (.var 6))) (.and (.and (.and (.var 2) (.var 3)) (.var 5)) (.var 6))) (.and (.and (.and (.var 2) (.var 4)) (.var 5)) (.var 6))) (.and (.and (.and (.var 3) (.var 4)) (.var 5)) (.var 6)))
+
+-- min2_of4: arity 4, generated from formula 'leandream.spec_formulas:at_least_two'
+def min2_of4_arity : Nat := 4
+def min2_of4 : Circuit := (.or (.or (.or (.or (.or (.and (.var 0) (.var 1)) (.and (.var 0) (.var 2))) (.and (.var 0) (.var 3))) (.and (.var 1) (.var 2))) (.and (.var 1) (.var 3))) (.and (.var 2) (.var 3)))
+
+-- nand4: arity 4, generated from formula 'leandream.spec_formulas:nand_chain'
+def nand4_arity : Nat := 4
+def nand4 : Circuit := (.not (.and (.and (.and (.var 0) (.var 1)) (.var 2)) (.var 3)))
+
+-- nor4: arity 4, generated from formula 'leandream.spec_formulas:nor_chain'
+def nor4_arity : Nat := 4
+def nor4 : Circuit := (.not (.or (.or (.or (.var 0) (.var 1)) (.var 2)) (.var 3)))
+
+-- one_hot4: arity 4, generated from formula 'leandream.spec_formulas:is_one_hot'
+def one_hot4_arity : Nat := 4
+def one_hot4 : Circuit := (.and (.or (.or (.or (.var 0) (.var 1)) (.var 2)) (.var 3)) (.not (.or (.or (.or (.or (.or (.and (.var 0) (.var 1)) (.and (.var 0) (.var 2))) (.and (.var 0) (.var 3))) (.and (.var 1) (.var 2))) (.and (.var 1) (.var 3))) (.and (.var 2) (.var 3)))))
+
+-- palindrome6: arity 6, generated from formula 'leandream.spec_formulas:is_palindrome'
+def palindrome6_arity : Nat := 6
+def palindrome6 : Circuit := (.and (.and (.not (.xor (.var 0) (.var 5))) (.not (.xor (.var 1) (.var 4)))) (.not (.xor (.var 2) (.var 3))))
+
+-- parity6: arity 6, generated from formula 'leandream.spec_formulas:parity'
+def parity6_arity : Nat := 6
+def parity6 : Circuit := (.xor (.xor (.xor (.xor (.xor (.var 0) (.var 1)) (.var 2)) (.var 3)) (.var 4)) (.var 5))
+
+-- parity8: arity 8, generated from formula 'leandream.spec_formulas:parity'
+def parity8_arity : Nat := 8
+def parity8 : Circuit := (.xor (.xor (.xor (.xor (.xor (.xor (.xor (.var 0) (.var 1)) (.var 2)) (.var 3)) (.var 4)) (.var 5)) (.var 6)) (.var 7))
+
+-- rotate_eq6: arity 6, generated from formula 'leandream.spec_formulas:rotate_eq'
+def rotate_eq6_arity : Nat := 6
+def rotate_eq6 : Circuit := (.and (.and (.not (.xor (.var 3) (.var 1))) (.not (.xor (.var 4) (.var 2)))) (.not (.xor (.var 5) (.var 0))))
+-- END GENERATED
+
 end LeanDream.Specs

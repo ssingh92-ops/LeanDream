@@ -237,6 +237,11 @@ def theorem_property_card(
             "macro_name": macro_name,
             "property_name": property_name,
             "lean_statement": lean_statement,
+            # Cards minted via this factory are exported from registry.properties,
+            # which is populated only after properties.prove_all wrote the theorem
+            # into Properties.lean and a `lake build` succeeded. The build IS the
+            # verification, so calling these "lean_verified" is accurate.
+            "trust_level": "lean_verified",
         },
     )
 

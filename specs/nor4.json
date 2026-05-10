@@ -1,0 +1,6 @@
+{
+  "name": "nor4",
+  "description": "4-input NOR. Output 1 iff every input is 0.",
+  "arity": 4,
+  "formula": "leandream.spec_formulas:nor_chain"
+}

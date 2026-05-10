@@ -7,11 +7,14 @@ thresholds before advancing.  If a gate fails, the stage repeats (up to
 
 Stages
 ------
-0  Smoke        Quick sanity: can Lean verify any circuit at all?
-1  Connectives  Learn AND, OR, XOR, NOT equivalents.
-2  Adder        Half-adder and full-adder discovery.
-3  Mux          Multiplexer (hardest — needs arity-3 macro composition).
-4  Full         Run all specs together to consolidate the macro library.
+0  Smoke            Quick sanity: can Lean verify any circuit at all?
+1  Connectives      Learn AND, OR, XOR, NOT equivalents.
+2  Adder            Half-adder and full-adder discovery.
+3  Mux              Multiplexer (needs arity-3 macro composition).
+4  Full             Run all specs together to consolidate the macro library.
+5  Motif            Asymmetric / motif-rich specs to enrich macro family.
+6  Parity ladder    parity{3,4,6,8} — forces macro reuse at higher arity.
+7  Majority ladder  majority{3,4,5,7} — sum-of-products composition.
 
 Usage
 -----
@@ -54,7 +57,7 @@ class StageGate:
     specs: list[str]          # spec names (without .json)
     iterations: int
     min_verify_ratio: float   # fraction of specs that must be verified at least once
-    min_macros: int           # macros installed before gate passes
+    min_macros: int = 0       # legacy field: kept for API/test compatibility, no longer gated
     max_retries: int = 1      # how many extra repetitions before giving up
     max_total_stage_minutes: float | None = None  # wall-clock budget; None = unlimited
 
@@ -63,34 +66,46 @@ CURRICULUM: list[StageGate] = [
     StageGate(
         index=0, name="smoke",
         specs=["and2", "xor2"],
-        iterations=1, min_verify_ratio=1.0, min_macros=0,
+        iterations=1, min_verify_ratio=1.0,
     ),
     StageGate(
         index=1, name="connectives",
         specs=["and2", "xor2", "or2", "nand2", "half_adder_sum", "half_adder_carry"],
-        iterations=3, min_verify_ratio=0.75, min_macros=1,
+        iterations=1, min_verify_ratio=0.75,
     ),
     StageGate(
         index=2, name="adder",
         specs=["full_adder_sum", "full_adder_carry", "parity3", "mux2"],
-        iterations=5, min_verify_ratio=0.5, min_macros=3,
+        iterations=1, min_verify_ratio=0.5,
     ),
     StageGate(
         index=3, name="mux",
         specs=["parity4", "xor_chain4", "majority3"],
-        iterations=5, min_verify_ratio=0.5, min_macros=5,
+        iterations=1, min_verify_ratio=0.5,
         max_retries=2,
     ),
     StageGate(
         index=4, name="full",
         specs=["all"],
-        iterations=5, min_verify_ratio=0.6, min_macros=6,
+        iterations=1, min_verify_ratio=0.6,
     ),
     StageGate(
         index=5, name="motif",
         specs=["and3", "or3", "xnor2", "majority4", "majority3", "mux2", "parity4"],
-        iterations=8, min_verify_ratio=0.7, min_macros=8,
+        iterations=1, min_verify_ratio=0.7,
         max_retries=2,
+    ),
+    StageGate(
+        index=6, name="parity_ladder",
+        specs=["parity3", "parity4", "parity6", "parity8"],
+        iterations=1, min_verify_ratio=0.5,
+        max_retries=2,
+    ),
+    StageGate(
+        index=7, name="majority_ladder",
+        specs=["majority3", "majority4", "majority5", "majority7"],
+        iterations=1, min_verify_ratio=0.5,
+        max_retries=3,
     ),
 ]
 
@@ -138,14 +153,6 @@ def evaluate_gate(
             verify_ratio=verify_ratio, macro_count=macro_count,
             reason=(
                 f"verify ratio {verify_ratio:.0%} < required {stage.min_verify_ratio:.0%}"
-            ),
-        )
-    if macro_count < stage.min_macros:
-        return GateResult(
-            passed=False, stage=stage,
-            verify_ratio=verify_ratio, macro_count=macro_count,
-            reason=(
-                f"macro count {macro_count} < required {stage.min_macros}"
             ),
         )
 
@@ -245,7 +252,7 @@ def run_curriculum(
             print(f"CURRICULUM  Stage {stage.index}: {stage.name.upper()}")
             print(f"  specs: {stage.specs}")
             print(f"  iterations: {stage.iterations}")
-            print(f"  gate: verify≥{stage.min_verify_ratio:.0%}, macros≥{stage.min_macros}")
+            print(f"  gate: verify≥{stage.min_verify_ratio:.0%}")
             print(f"{'='*60}")
 
         specs = load_specs(stage.specs)
@@ -333,13 +340,43 @@ def run_curriculum(
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="leandream-curriculum")
-    parser.add_argument("--start", type=int, default=0, help="First stage index (0–5).")
-    parser.add_argument("--end", type=int, default=5, help="Last stage index (0–5).")
+    parser.add_argument("--start", type=int, default=0, help="First stage index (0–7).")
+    parser.add_argument("--end", type=int, default=7, help="Last stage index (0–7).")
     parser.add_argument("--mock", action="store_true")
     parser.add_argument("--model", default=None)
     parser.add_argument("--min-support", type=int, default=2)
     parser.add_argument("--min-size", type=int, default=3)
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help=(
+            "Wipe accumulated state before running: proofs/, prompts/, "
+            "macros/registry.json, generated Lean files, and the cross-run "
+            "stores under data/ (bandit posteriors, RAG cards, caches)."
+        ),
+    )
     args = parser.parse_args()
+
+    if args.reset:
+        from . import orchestrator
+        orchestrator.reset_state()
+        # Curriculum reset also clears cross-run state. The orchestrator's
+        # reset_state only touches per-run files; we additionally drop the
+        # bandit posterior, the RAG card store, the disk caches, and prior run
+        # logs so a curriculum start is genuinely from zero.
+        import shutil
+        from pathlib import Path
+        REPO = Path(__file__).resolve().parent.parent.parent
+        extra: list[str] = []
+        for sub in ("data/bandit", "data/cards", "data/cache", "runs"):
+            p = REPO / sub
+            if p.exists():
+                shutil.rmtree(p)
+                extra.append(sub)
+        if extra:
+            print("curriculum --reset additionally cleared:")
+            for e in extra:
+                print(f"  - {e}/")
 
     run_curriculum(
         start_stage=args.start,

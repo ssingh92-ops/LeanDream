@@ -1354,6 +1354,179 @@ function switchTab(name) {
   if (name === "metrics")    loadMetrics();
   if (name === "lean")       loadLean();
   if (name === "dsl")        loadDSL();
+  if (name === "run")        loadRunSummary();
+}
+
+// ----- Run Summary tab -----
+
+async function loadRunSummary() {
+  const q = runQuery();
+  let runId = currentRun;
+  if (!runId) {
+    try {
+      const latest = await api("/api/runs/latest");
+      runId = latest?.run_id || latest?.id || null;
+    } catch { /* ignore */ }
+  }
+
+  let summary = {};
+  let metrics = [];
+  let attemptsResp = { items: [] };
+  try { summary = await api(`/api/summary${q}`); } catch {}
+  try { metrics = await api(`/api/metrics${q}`); } catch {}
+  try {
+    attemptsResp = await api(`/api/attempts${q ? q + "&" : "?"}page_size=1000`);
+  } catch {}
+  const attempts = attemptsResp.items || [];
+
+  // ---- header ----
+  const header = $("#run-header");
+  header.innerHTML = "";
+  const verifyRate = summary.overall_verify_rate ?? summary.avg_verify_rate ?? 0;
+  let wallMin = null;
+  if (attempts.length) {
+    const stamps = attempts.map(a => a.timestamp).filter(Boolean).sort();
+    if (stamps.length >= 2) {
+      const first = new Date(stamps[0]).getTime();
+      const last = new Date(stamps[stamps.length - 1]).getTime();
+      if (!isNaN(first) && !isNaN(last)) wallMin = (last - first) / 60000;
+    }
+  }
+  const cards = [
+    ["Run ID",        runId ? runId.slice(0, 14) : "(none)",                "#0ea5e9"],
+    ["Iterations",    String(summary.iterations ?? "?"),                    "#3fb950"],
+    ["Attempts",      `${summary.total_verified ?? 0}/${summary.total_attempted ?? 0}`, "#58a6ff"],
+    ["Verify rate",   `${(verifyRate * 100).toFixed(0)}%`,                  "#3fb950"],
+    ["Macros",        String(summary.macro_count ?? 0),                     "#bc8cff"],
+    ["Theorems",      String(summary.theorem_count ?? 0),                   "#facc15"],
+    ["Wall time",     wallMin != null ? `${wallMin.toFixed(1)} min` : "—",  "#8b949e"],
+    ["RAG cards",     String(summary.rag_card_count ?? 0),                  "#f59e0b"],
+  ];
+  for (const [label, val, color] of cards) {
+    header.appendChild(el("div", { className: "stat" },
+      el("span", { className: "num", style: `color:${color}` }, val),
+      label,
+    ));
+  }
+
+  // ---- per-iteration table ----
+  const iterDiv = $("#run-iter-table");
+  iterDiv.innerHTML = "";
+  if (!metrics.length) {
+    iterDiv.appendChild(el("p", { className: "empty" }, "No iteration metrics."));
+  } else {
+    const tbl = el("table");
+    tbl.appendChild(el("thead", {}, el("tr", {},
+      el("th", {}, "iter"),
+      el("th", {}, "verified / attempted"),
+      el("th", {}, "rate"),
+      el("th", {}, "Δ macros"),
+      el("th", {}, "Δ thms"),
+      el("th", {}, "llm ms"),
+      el("th", {}, "lean ms"),
+    )));
+    const tbody = el("tbody");
+    for (const r of metrics) {
+      const v = parseInt(r.verified, 10);
+      const a = parseInt(r.attempted, 10);
+      const rate = a ? v / a : 0;
+      const barClass = rate >= 1 ? "" : (rate > 0 ? " partial" : " empty");
+      tbody.appendChild(el("tr", {},
+        el("td", {}, String(r.iteration)),
+        el("td", {}, `${v}/${a}`),
+        el("td", {},
+          el("span", {
+            className: `iter-bar${barClass}`,
+            style: `width:${Math.max(2, rate * 60)}px`,
+          }),
+          `${(rate * 100).toFixed(0)}%`,
+        ),
+        el("td", {}, String(r.new_macros ?? 0)),
+        el("td", {}, String(r.new_theorems ?? 0)),
+        el("td", {}, parseFloat(r.avg_llm_ms || 0).toFixed(0)),
+        el("td", {}, parseFloat(r.avg_lean_ms || 0).toFixed(0)),
+      ));
+    }
+    tbl.appendChild(tbody);
+    iterDiv.appendChild(tbl);
+  }
+
+  // ---- per-spec aggregation ----
+  const bySpec = new Map();
+  for (const a of attempts) {
+    const s = a.spec || "(unknown)";
+    const cur = bySpec.get(s) || { spec: s, attempts: 0, verified: 0, firstVerifiedIter: null };
+    cur.attempts += 1;
+    if (a.status === "verified") {
+      cur.verified += 1;
+      if (cur.firstVerifiedIter == null && a.iteration != null) {
+        cur.firstVerifiedIter = a.iteration;
+      }
+    }
+    bySpec.set(s, cur);
+  }
+  const specRows = [...bySpec.values()].sort((a, b) => a.spec.localeCompare(b.spec));
+  const specDiv = $("#run-spec-table");
+  specDiv.innerHTML = "";
+  if (!specRows.length) {
+    specDiv.appendChild(el("p", { className: "empty" }, "No attempts in this run."));
+  } else {
+    const tbl = el("table");
+    tbl.appendChild(el("thead", {}, el("tr", {},
+      el("th", {}, "spec"),
+      el("th", {}, "verified / attempts"),
+      el("th", {}, "rate"),
+      el("th", {}, "first @ iter"),
+    )));
+    const tbody = el("tbody");
+    for (const row of specRows) {
+      const rate = row.attempts ? row.verified / row.attempts : 0;
+      const barClass = rate >= 1 ? "" : (rate > 0 ? " partial" : " empty");
+      tbody.appendChild(el("tr", {},
+        el("td", {}, row.spec),
+        el("td", {}, `${row.verified} / ${row.attempts}`),
+        el("td", {},
+          el("span", {
+            className: `iter-bar${barClass}`,
+            style: `width:${Math.max(2, rate * 60)}px`,
+          }),
+          `${(rate * 100).toFixed(0)}%`,
+        ),
+        el("td", {}, row.firstVerifiedIter == null ? "—" : String(row.firstVerifiedIter)),
+      ));
+    }
+    tbl.appendChild(tbody);
+    specDiv.appendChild(tbl);
+  }
+
+  // ---- failure modes ----
+  const failDiv = $("#run-failures");
+  failDiv.innerHTML = "";
+  const failures = attempts.filter(a => a.status !== "verified");
+  if (!failures.length) {
+    failDiv.appendChild(el("p", { className: "empty" }, "No failures in this run. ✓"));
+  } else {
+    const counts = new Map();
+    for (const a of failures) {
+      const k = `${a.status}${a.error_type ? "/" + a.error_type : ""}`;
+      counts.set(k, (counts.get(k) || 0) + 1);
+    }
+    const tbl = el("table");
+    tbl.appendChild(el("thead", {}, el("tr", {},
+      el("th", {}, "status / error"),
+      el("th", {}, "count"),
+    )));
+    const tbody = el("tbody");
+    const sortedFailures = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    for (const [status, n] of sortedFailures) {
+      tbody.appendChild(el("tr", {},
+        el("td", {}, status),
+        el("td", {}, String(n)),
+      ));
+    }
+    tbl.appendChild(tbody);
+    failDiv.appendChild(tbl);
+  }
 }
 
 document.addEventListener("DOMContentLoaded", async () => {

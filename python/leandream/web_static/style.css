@@ -306,6 +306,49 @@ table.macros code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+.run-tables {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.run-tables table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.run-tables th, .run-tables td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.run-tables th {
+  background: var(--panel-2);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.run-tables tr:last-child td { border-bottom: 0; }
+
+.iter-bar {
+  display: inline-block;
+  height: 8px;
+  background: var(--ok);
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.iter-bar.partial { background: var(--warn); }
+.iter-bar.empty   { background: var(--danger); }
+
 pre {
   background: var(--panel-2);
   border: 1px solid var(--border);

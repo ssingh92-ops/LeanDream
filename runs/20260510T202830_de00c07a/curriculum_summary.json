@@ -1,0 +1,24 @@
+[
+  {
+    "stage_index": 0,
+    "stage_name": "smoke",
+    "specs": [
+      "and2",
+      "xor2"
+    ],
+    "gate_passed": true,
+    "verify_ratio": 1.0,
+    "macro_count": 0,
+    "gate_reason": "all thresholds met",
+    "per_spec": {
+      "and2": {
+        "verified": 1,
+        "total": 1
+      },
+      "xor2": {
+        "verified": 1,
+        "total": 1
+      }
+    }
+  }
+]

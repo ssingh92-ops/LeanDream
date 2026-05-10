@@ -639,9 +639,16 @@ def get_accumulated_analysis() -> dict:
 def list_specs() -> list[dict]:
     if not SPECS_DIR.exists():
         return []
+    from . import specs_gen
     out = []
     for f in sorted(SPECS_DIR.glob("*.json")):
-        out.append(json.loads(f.read_text()))
+        spec = json.loads(f.read_text())
+        if spec.get("formula"):
+            try:
+                spec = specs_gen.expand_spec(spec)
+            except Exception:
+                pass
+        out.append(spec)
     return out
 
 
@@ -650,7 +657,14 @@ def get_spec(name: str) -> dict:
     p = SPECS_DIR / f"{name}.json"
     if not p.exists():
         raise HTTPException(404, f"spec not found: {name}")
-    return json.loads(p.read_text())
+    spec = json.loads(p.read_text())
+    if spec.get("formula"):
+        from . import specs_gen
+        try:
+            spec = specs_gen.expand_spec(spec)
+        except Exception:
+            pass
+    return spec
 
 
 @app.get("/api/macros")
