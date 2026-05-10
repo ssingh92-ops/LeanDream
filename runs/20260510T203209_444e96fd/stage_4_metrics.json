@@ -1,0 +1,129 @@
+{
+  "stage_index": 4,
+  "stage_name": "full",
+  "specs": [
+    "all"
+  ],
+  "gate_passed": true,
+  "verify_ratio": 1.0,
+  "macro_count": 12,
+  "gate_reason": "all thresholds met",
+  "per_spec": {
+    "and2": {
+      "verified": 1,
+      "total": 1
+    },
+    "and3": {
+      "verified": 1,
+      "total": 1
+    },
+    "full_adder_carry": {
+      "verified": 1,
+      "total": 1
+    },
+    "full_adder_sum": {
+      "verified": 1,
+      "total": 1
+    },
+    "gt4": {
+      "verified": 1,
+      "total": 1
+    },
+    "half_adder_carry": {
+      "verified": 1,
+      "total": 1
+    },
+    "half_adder_sum": {
+      "verified": 1,
+      "total": 1
+    },
+    "lt4": {
+      "verified": 1,
+      "total": 1
+    },
+    "majority3": {
+      "verified": 1,
+      "total": 1
+    },
+    "majority4": {
+      "verified": 1,
+      "total": 1
+    },
+    "majority5": {
+      "verified": 1,
+      "total": 1
+    },
+    "majority7": {
+      "verified": 1,
+      "total": 1
+    },
+    "min2_of4": {
+      "verified": 1,
+      "total": 1
+    },
+    "mux2": {
+      "verified": 1,
+      "total": 1
+    },
+    "nand2": {
+      "verified": 1,
+      "total": 1
+    },
+    "nand4": {
+      "verified": 1,
+      "total": 1
+    },
+    "nor4": {
+      "verified": 1,
+      "total": 1
+    },
+    "one_hot4": {
+      "verified": 1,
+      "total": 1
+    },
+    "or2": {
+      "verified": 1,
+      "total": 1
+    },
+    "or3": {
+      "verified": 1,
+      "total": 1
+    },
+    "palindrome6": {
+      "verified": 1,
+      "total": 1
+    },
+    "parity3": {
+      "verified": 1,
+      "total": 1
+    },
+    "parity4": {
+      "verified": 1,
+      "total": 1
+    },
+    "parity6": {
+      "verified": 1,
+      "total": 1
+    },
+    "parity8": {
+      "verified": 1,
+      "total": 1
+    },
+    "rotate_eq6": {
+      "verified": 1,
+      "total": 1
+    },
+    "xnor2": {
+      "verified": 1,
+      "total": 1
+    },
+    "xor2": {
+      "verified": 1,
+      "total": 1
+    },
+    "xor_chain4": {
+      "verified": 1,
+      "total": 1
+    }
+  }
+}

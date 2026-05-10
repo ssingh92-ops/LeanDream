@@ -1,0 +1,34 @@
+[
+  {
+    "stage_index": 7,
+    "stage_name": "majority_ladder",
+    "specs": [
+      "majority3",
+      "majority4",
+      "majority5",
+      "majority7"
+    ],
+    "gate_passed": true,
+    "verify_ratio": 1.0,
+    "macro_count": 24,
+    "gate_reason": "all thresholds met",
+    "per_spec": {
+      "majority3": {
+        "verified": 1,
+        "total": 1
+      },
+      "majority4": {
+        "verified": 1,
+        "total": 1
+      },
+      "majority5": {
+        "verified": 1,
+        "total": 1
+      },
+      "majority7": {
+        "verified": 1,
+        "total": 1
+      }
+    }
+  }
+]

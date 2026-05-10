@@ -41,6 +41,24 @@ theorem macro_1_id_true_right (x0 : Circuit) :
       (Macros.macro_1 x0 (.const true)).eval env = x0.eval env := by
   intro env; simp [Macros.macro_1, Circuit.eval]
 
+-- theorem: macro_11_ann_false_left
+theorem macro_11_ann_false_left (x0 : Circuit) :
+    ∀ env : Nat → Bool,
+      (Macros.macro_11 (.const false) x0).eval env = false := by
+  intro env; simp [Macros.macro_11, Circuit.eval]
+
+-- theorem: macro_11_id_false_right
+theorem macro_11_id_false_right (x0 : Circuit) :
+    ∀ env : Nat → Bool,
+      (Macros.macro_11 x0 (.const false)).eval env = x0.eval env := by
+  intro env; simp [Macros.macro_11, Circuit.eval]
+
+-- theorem: macro_12_inv_inv
+theorem macro_12_inv_inv (x0 : Circuit) :
+    ∀ env : Nat → Bool,
+      (Macros.macro_12 (Macros.macro_12 x0)).eval env = x0.eval env := by
+  intro env; simp [Macros.macro_12, Circuit.eval]
+
 -- theorem: macro_2_comm
 theorem macro_2_comm (x0 x1 : Circuit) :
     ∀ env : Nat → Bool,
@@ -59,3 +77,40 @@ theorem macro_2_id_false_right (x0 : Circuit) :
     ∀ env : Nat → Bool,
       (Macros.macro_2 x0 (.const false)).eval env = x0.eval env := by
   intro env; simp [Macros.macro_2, Circuit.eval]
+
+-- theorem: macro_7_comm
+theorem macro_7_comm (x0 x1 : Circuit) :
+    ∀ env : Nat → Bool,
+      (Macros.macro_7 x0 x1).eval env = (Macros.macro_7 x1 x0).eval env := by
+  intro env; simp [Macros.macro_7, Circuit.eval]
+  <;> cases x0.eval env <;> cases x1.eval env <;> rfl
+
+-- theorem: macro_7_idem
+theorem macro_7_idem (x0 : Circuit) :
+    ∀ env : Nat → Bool,
+      (Macros.macro_7 x0 x0).eval env = x0.eval env := by
+  intro env; simp [Macros.macro_7, Circuit.eval]
+
+-- theorem: macro_7_ann_true_left
+theorem macro_7_ann_true_left (x0 : Circuit) :
+    ∀ env : Nat → Bool,
+      (Macros.macro_7 (.const true) x0).eval env = true := by
+  intro env; simp [Macros.macro_7, Circuit.eval]
+
+-- theorem: macro_7_ann_true_right
+theorem macro_7_ann_true_right (x0 : Circuit) :
+    ∀ env : Nat → Bool,
+      (Macros.macro_7 x0 (.const true)).eval env = true := by
+  intro env; simp [Macros.macro_7, Circuit.eval]
+
+-- theorem: macro_7_id_false_left
+theorem macro_7_id_false_left (x0 : Circuit) :
+    ∀ env : Nat → Bool,
+      (Macros.macro_7 (.const false) x0).eval env = x0.eval env := by
+  intro env; simp [Macros.macro_7, Circuit.eval]
+
+-- theorem: macro_7_id_false_right
+theorem macro_7_id_false_right (x0 : Circuit) :
+    ∀ env : Nat → Bool,
+      (Macros.macro_7 x0 (.const false)).eval env = x0.eval env := by
+  intro env; simp [Macros.macro_7, Circuit.eval]

@@ -1,0 +1,47 @@
+{
+  "stage_index": 5,
+  "stage_name": "motif",
+  "specs": [
+    "and3",
+    "or3",
+    "xnor2",
+    "majority4",
+    "majority3",
+    "mux2",
+    "parity4"
+  ],
+  "gate_passed": true,
+  "verify_ratio": 1.0,
+  "macro_count": 15,
+  "gate_reason": "all thresholds met",
+  "per_spec": {
+    "and3": {
+      "verified": 1,
+      "total": 1
+    },
+    "or3": {
+      "verified": 1,
+      "total": 1
+    },
+    "xnor2": {
+      "verified": 1,
+      "total": 1
+    },
+    "majority4": {
+      "verified": 1,
+      "total": 1
+    },
+    "majority3": {
+      "verified": 1,
+      "total": 1
+    },
+    "mux2": {
+      "verified": 1,
+      "total": 1
+    },
+    "parity4": {
+      "verified": 1,
+      "total": 1
+    }
+  }
+}

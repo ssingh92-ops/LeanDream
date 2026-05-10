@@ -1,0 +1,32 @@
+{
+  "stage_index": 6,
+  "stage_name": "parity_ladder",
+  "specs": [
+    "parity3",
+    "parity4",
+    "parity6",
+    "parity8"
+  ],
+  "gate_passed": true,
+  "verify_ratio": 1.0,
+  "macro_count": 17,
+  "gate_reason": "all thresholds met",
+  "per_spec": {
+    "parity3": {
+      "verified": 1,
+      "total": 1
+    },
+    "parity4": {
+      "verified": 1,
+      "total": 1
+    },
+    "parity6": {
+      "verified": 1,
+      "total": 1
+    },
+    "parity8": {
+      "verified": 1,
+      "total": 1
+    }
+  }
+}
