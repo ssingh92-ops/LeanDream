@@ -20,3 +20,6 @@ lean/.lake/
 lean/build/
 lean/lake-packages/
 lean/LeanDream/Candidate.lean
+
+# Runtime artifacts
+/runs/
